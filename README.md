@@ -1,2 +1,3 @@
-# LagPixelLOL.github.io
-My slop vibe coded website.
+# Slop Site
+My slop vibe coded website. \
+[Meow!](https://LagPixelLOL.github.io)
