@@ -10,206 +10,75 @@
     <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
     <style>
         body {
-            margin: 0;
-            background-color: #000000;
-            color: #ffffff;
-            font-family: 'Montserrat', sans-serif;
-            min-height: 100vh;
-            display: grid;
-            grid-template-rows: auto 1fr auto;
-            padding: 30px 50px;
-            box-sizing: border-box;
-            overflow-x: hidden;
-            cursor: none;
+            margin: 0; background-color: #000000; color: #ffffff; font-family: 'Montserrat', sans-serif;
+            min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto;
+            padding: 30px 50px; box-sizing: border-box; overflow-x: hidden; cursor: none;
         }
+        header, .content-wrapper, #aura { opacity: 0; }
+        .cursor-follower { opacity: 0; }
 
         header {
-            grid-row: 1 / 2;
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            padding-bottom: 20px;
-            width: 100%;
+            grid-row: 1 / 2; display: flex; justify-content: flex-start; align-items: center;
+            padding-bottom: 20px; width: 100%;
         }
-
         nav a {
-            color: #cccccc;
-            text-decoration: none;
-            margin-left: 35px;
-            font-size: 14px;
-            font-weight: 400;
-            letter-spacing: 1px;
+            color: #cccccc; text-decoration: none; margin-left: 35px;
+            font-size: 14px; font-weight: 400; letter-spacing: 1px;
         }
-
         .content-wrapper {
-            grid-row: 2 / 3;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            width: 100%;
+            grid-row: 2 / 3; display: flex; flex-direction: column; justify-content: center;
+            align-items: center; text-align: center; width: 100%;
         }
-
-        .logo-container {
-            position: relative;
-            display: inline-block;
-        }
-
+        .logo-container { position: relative; display: inline-block; }
         .logo-text {
-            font-family: 'Audiowide', sans-serif;
-            font-size: 8.5rem;
-            font-weight: normal;
-            margin: 0;
-            position: relative;
-            z-index: 2;
-            letter-spacing: 5px;
-            user-select: none;
+            font-family: 'Audiowide', sans-serif; font-size: 8.5rem; font-weight: normal;
+            margin: 0; position: relative; z-index: 2; letter-spacing: 5px; user-select: none;
         }
-
-        .logo-text span {
-            display: inline-block;
-            position: relative;
-            will-change: transform, color;
-        }
-
-        .logo-text span.logo-char-first {
-            color: #FF0000;
-        }
-
-        .logo-text span.logo-char-rest {
-            color: #FFFFFF;
-        }
-
-        .logo-text span.logo-char-info-i {
-            font-family: 'Georgia', Times, serif;
-            font-style: italic;
-            font-weight: bold;
-        }
-
-        .aura-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
+        .logo-text span { display: inline-block; position: relative; will-change: transform, color; }
+        .logo-text span.logo-char-first { color: #FF0000; }
+        .logo-text span.logo-char-rest { color: #FFFFFF; }
+        .logo-text span.logo-char-info-i { font-family: 'Georgia', Times, serif; font-style: italic; font-weight: bold; }
+        .aura-container { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
         .aura {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 150%;
-            height: 180%;
-            transform: translate(-50%, -50%);
+            position: absolute; left: 50%; top: 50%; width: 150%; height: 180%;
             background:
                 radial-gradient(ellipse farthest-corner at 20% 50%, rgba(255, 82, 0, 0.65) 0%, transparent 70%),
                 radial-gradient(ellipse farthest-corner at 50% 50%, rgba(0, 200, 83, 0.75) 0%, transparent 70%),
                 radial-gradient(ellipse farthest-corner at 80% 50%, rgba(41, 121, 255, 0.65) 0%, transparent 70%);
-            filter: blur(65px);
-            opacity: 0.95;
-            z-index: 1;
-            border-radius: 50%;
+            filter: blur(65px); z-index: 1; border-radius: 50%;
         }
-
-        .buttons-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 25px;
-            width: 100%;
-        }
-
+        .buttons-container { display: flex; justify-content: center; align-items: center; gap: 25px; width: 100%; margin-top: 30px; }
         .btn {
-            background-color: transparent;
-            color: #bbbbbb;
-            border: 1px solid #555555;
-            padding: 12px 30px;
-            font-size: 13px;
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 500;
-            letter-spacing: 1.5px;
-            border-radius: 4px;
+            background-color: transparent; color: #bbbbbb; border: 1px solid #555555;
+            padding: 12px 30px; font-size: 13px; font-family: 'Montserrat', sans-serif;
+            font-weight: 500; letter-spacing: 1.5px; border-radius: 4px;
             transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-
-        .btn:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            border-color: #888888;
-        }
-
+        .btn:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888888; }
         .cursor-follower {
-            position: fixed;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background-color: white;
-            mix-blend-mode: difference;
-            pointer-events: none;
-            z-index: 10000;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            will-change: left, top, opacity, transform;
+            position: fixed; width: 30px; height: 30px; border-radius: 50%;
+            background-color: white; mix-blend-mode: difference; pointer-events: none;
+            z-index: 10000; left: 0; top: 0; will-change: left, top, opacity, transform;
         }
-
-        a, button, .btn {
-            cursor: none;
-        }
+        a, button, .btn { cursor: none; }
 
         @media (max-width: 768px) {
-            body {
-                padding: 20px;
-            }
-            header nav {
-                justify-content: center;
-            }
-            nav a {
-                margin: 0 15px;
-                font-size: 13px;
-            }
-            .logo-text {
-                font-size: 5rem;
-                letter-spacing: 3px;
-            }
-            .aura {
-                filter: blur(45px);
-            }
-            .buttons-container {
-                flex-direction: column;
-                gap: 15px;
-            }
-            .btn {
-                width: 80%;
-                max-width: 300px;
-                padding: 12px 20px;
-                font-size: 12px;
-            }
-            .cursor-follower {
-                width: 25px;
-                height: 25px;
-            }
+            body { padding: 20px; } header nav { justify-content: center; }
+            nav a { margin: 0 15px; font-size: 13px; }
+            .logo-text { font-size: 5rem; letter-spacing: 3px; } .aura { filter: blur(45px); }
+            .buttons-container { flex-direction: column; gap: 15px; }
+            .btn { width: 80%; max-width: 300px; padding: 12px 20px; font-size: 12px; }
+            .cursor-follower { width: 25px; height: 25px; }
         }
         @media (max-width: 480px) {
-            .logo-text {
-                font-size: 3.5rem;
-                letter-spacing: 2px;
-            }
-            nav a {
-                margin: 0 10px;
-                font-size: 12px;
-            }
-            .cursor-follower {
-                width: 20px;
-                height: 20px;
-            }
+            .logo-text { font-size: 3.5rem; letter-spacing: 2px; }
+            nav a { margin: 0 10px; font-size: 12px; }
+            .cursor-follower { width: 20px; height: 20px; }
         }
     </style>
 </head>
 <body>
     <div class="cursor-follower"></div>
-
     <header>
         <nav>
             <a href="#">ABOUT</a>
@@ -217,7 +86,6 @@
             <a href="#">CONTACT</a>
         </nav>
     </header>
-
     <div class="content-wrapper">
         <div class="logo-container">
             <div class="aura-container">
@@ -227,16 +95,37 @@
         </div>
         <div class="buttons-container">
             <button class="btn">LEARN MORE</button>
-            <button class="btn" onclick="window.location.href='https://v2ai.net'">GET STARTED</button>
+            <button class="btn js-navigate-btn" data-href="https://v2ai.net">GET STARTED</button>
         </div>
     </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        let isNavigatingAway = false;
+        const FADE_IN_DURATION = 500;
+        const FADE_OUT_DURATION = 500;
+
+        const mainPageElementsToFade = ['header', '.content-wrapper'];
+        const allElementsToFadeOut = ['header', '.content-wrapper', '#aura', '.cursor-follower'];
+
+        let hasMouseMovedOrEnteredForFollower = false;
+
+        function initializeAndAnimateAura() {
+            if (isNavigatingAway) return;
+            anime.remove('#aura');
             anime.set('#aura', {
+                opacity: 0,
                 translateX: '-50%',
                 translateY: '-50%',
                 scale: 1
             });
+
+            anime({
+                targets: '#aura',
+                opacity: 0.95,
+                duration: FADE_IN_DURATION,
+                easing: 'easeOutQuad'
+            });
+
             anime({
                 targets: '#aura',
                 translateX: [
@@ -247,15 +136,80 @@
                     { value: "-49%", duration: 2000 },
                     { value: "-51%", duration: 2000 }
                 ],
-                scale: [ { value: 1.02, duration: 2500 }, { value: 0.98, duration: 2500 } ],
+                scale: [
+                    { value: 1.02, duration: 2500 },
+                    { value: 0.98, duration: 2500 }
+                ],
                 direction: 'alternate',
                 loop: true,
                 easing: 'easeInOutSine'
             });
+        }
+
+        function doGeneralPageFadeIn() {
+            if (isNavigatingAway) return;
+            mainPageElementsToFade.forEach(selector => anime.remove(selector));
+            anime.set(mainPageElementsToFade, { opacity: 0 });
+            anime({
+                targets: mainPageElementsToFade,
+                opacity: 1,
+                duration: FADE_IN_DURATION,
+                easing: 'easeOutQuad'
+            });
+        }
+
+        window.addEventListener('pageshow', function(event) {
+            isNavigatingAway = false;
+
+            if (event.persisted) {
+                anime.remove([
+                    '#aura', '.cursor-follower',
+                    ...Array.from(document.querySelectorAll('.logo-text span')),
+                    ...Array.from(document.querySelectorAll('nav a span, .btn span')),
+                    ...mainPageElementsToFade,
+                    ...allElementsToFadeOut
+                ]);
+
+                mainPageElementsToFade.forEach(selector => {
+                    const el = document.querySelector(selector);
+                    if (el) el.style.opacity = '0';
+                });
+
+                const followerEl = document.querySelector('.cursor-follower');
+                if (followerEl) {
+                    followerEl.style.opacity = '0';
+                    anime.set(followerEl, { left: '-100px', top: '-100px', scale: 1 });
+                }
+
+                hasMouseMovedOrEnteredForFollower = false;
+
+                initializeAndAnimateAura();
+
+                document.querySelectorAll('nav a, .btn').forEach(el => {
+                    const originalColor = el.dataset.originalColor;
+                    if (originalColor) {
+                        Array.from(el.querySelectorAll('span')).forEach(span => {
+                            span.style.color = originalColor;
+                        });
+                    }
+                });
+
+                document.querySelectorAll('.logo-text span').forEach(charSpan => {
+                    anime.set(charSpan, { translateX: 0, translateY: 0 });
+                });
+
+                doGeneralPageFadeIn();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAndAnimateAura();
+            doGeneralPageFadeIn();
 
             const animatedTextElements = document.querySelectorAll('nav a, .btn');
             animatedTextElements.forEach(el => {
                 const originalColor = window.getComputedStyle(el).color;
+                el.dataset.originalColor = originalColor;
                 const originalText = el.textContent;
                 el.innerHTML = '';
                 originalText.split('').forEach(char => {
@@ -273,23 +227,13 @@
                 const letterSpans = Array.from(el.querySelectorAll('span'));
                 el.addEventListener('mouseenter', () => {
                     if (letterSpans.length === 0) return;
-                    anime({
-                        targets: letterSpans,
-                        color: '#FF0000',
-                        delay: anime.stagger(40, { easing: 'easeInSine', from: 'first' }),
-                        duration: 200,
-                        easing: 'linear'
-                    });
+                    anime.remove(letterSpans);
+                    anime({ targets: letterSpans, color: '#FF0000', delay: anime.stagger(40, { easing: 'easeInSine', from: 'first' }), duration: 200, easing: 'linear' });
                 });
                 el.addEventListener('mouseleave', () => {
                     if (letterSpans.length === 0) return;
-                    anime({
-                        targets: letterSpans,
-                        color: originalColor,
-                        delay: anime.stagger(40, { easing: 'easeInSine', from: 'last' }),
-                        duration: 200,
-                        easing: 'linear'
-                    });
+                    anime.remove(letterSpans);
+                    anime({ targets: letterSpans, color: el.dataset.originalColor, delay: anime.stagger(40, { easing: 'easeInSine', from: 'last' }), duration: 200, easing: 'linear' });
                 });
             });
 
@@ -299,107 +243,173 @@
                 const followerMoveDuration = isTouchDevice ? 50 : 0;
 
                 anime.set(follower, {
-                    left: '-100px', top: '-100px', opacity: 0,
-                    translateX: '-50%', translateY: '-50%', scale: 1
+                    left: '-100px', top: '-100px',
+                    translateX: '-50%', translateY: '-50%',
+                    scale: 1,
+                    opacity: 0
                 });
 
+                const fadeInFollower = () => {
+                    if (hasMouseMovedOrEnteredForFollower || isNavigatingAway) return;
+                    hasMouseMovedOrEnteredForFollower = true;
+
+                    anime.remove(follower);
+                    anime({
+                        targets: follower,
+                        opacity: 1,
+                        duration: 300,
+                        easing: 'easeOutQuad'
+                    });
+                };
+
                 document.addEventListener('mousemove', (e) => {
+                    if (!hasMouseMovedOrEnteredForFollower) {
+                        fadeInFollower();
+                    }
+
                     anime({
                         targets: follower,
                         left: e.clientX + 'px',
                         top: e.clientY + 'px',
-                        opacity: 1,
                         duration: followerMoveDuration,
                         easing: 'linear'
                     });
-                });
+                }, { passive: true });
 
                 document.addEventListener('mouseenter', () => {
-                    anime({ targets: follower, opacity: 1, duration: 300, easing: 'easeOutQuad' });
+                    if (!isNavigatingAway) {
+                        fadeInFollower();
+                    }
                 });
 
                 document.addEventListener('mouseleave', () => {
-                    anime({ targets: follower, opacity: 0, duration: 300, easing: 'easeOutQuad' });
+                    hasMouseMovedOrEnteredForFollower = false;
+
+                    anime.remove(follower);
+                    anime({
+                        targets: follower,
+                        opacity: 0,
+                        duration: 300,
+                        easing: 'easeOutQuad'
+                    });
                 });
 
                 const interactiveElements = document.querySelectorAll('nav a, .btn, .logo-text');
                 interactiveElements.forEach(el => {
                     el.addEventListener('mouseenter', () => {
-                        anime({ targets: follower, translateX: '-50%', translateY: '-50%', scale: 1.5, duration: 250, easing: 'easeOutExpo' });
+                        if (hasMouseMovedOrEnteredForFollower) {
+                            anime({ targets: follower, scale: 1.5, duration: 250, easing: 'easeOutExpo' });
+                        }
                     });
                     el.addEventListener('mouseleave', () => {
-                        anime({ targets: follower, translateX: '-50%', translateY: '-50%', scale: 1, duration: 250, easing: 'easeOutExpo' });
+                        if (hasMouseMovedOrEnteredForFollower) {
+                            anime({ targets: follower, scale: 1, duration: 250, easing: 'easeOutExpo' });
+                        }
                     });
                 });
             }
 
             const logoTextElement = document.querySelector('.logo-text');
             if (logoTextElement) {
-                const originalText = logoTextElement.textContent;
-                logoTextElement.innerHTML = '';
-
-                originalText.split('').forEach((char, index) => {
-                    const span = document.createElement('span');
-                    span.textContent = char;
-                    if (index === 0) {
-                        span.classList.add('logo-char-first');
-                    } else {
-                        span.classList.add('logo-char-rest');
-                    }
-
-                    if (char === 'i') {
-                        span.classList.add('logo-char-info-i');
-                    }
-
-                    logoTextElement.appendChild(span);
-                });
+                if (!logoTextElement.dataset.initialized) {
+                    const originalText = logoTextElement.textContent;
+                    logoTextElement.innerHTML = '';
+                    originalText.split('').forEach((char, index) => {
+                        const span = document.createElement('span');
+                        span.textContent = char;
+                        if (index === 0) { span.classList.add('logo-char-first'); }
+                        else { span.classList.add('logo-char-rest'); }
+                        if (char === 'i') { span.classList.add('logo-char-info-i'); }
+                        logoTextElement.appendChild(span);
+                    });
+                    logoTextElement.dataset.initialized = "true";
+                }
 
                 const logoChars = Array.from(logoTextElement.querySelectorAll('span'));
-                const PUSH_RADIUS = 100;
-                const PUSH_STRENGTH = 50;
-                const ACTIVE_PUSH_DURATION = 50;
-                const DECAY_DURATION = 100;
+                const PUSH_RADIUS = 100; const PUSH_STRENGTH = 50;
+                const ACTIVE_PUSH_DURATION = 50; const DECAY_DURATION = 100;
 
                 document.addEventListener('mousemove', (e) => {
-                    const cursorX = e.clientX;
-                    const cursorY = e.clientY;
-
+                    const cursorX = e.clientX; const cursorY = e.clientY;
                     logoChars.forEach(charSpan => {
                         const charRect = charSpan.getBoundingClientRect();
                         const charCenterX = charRect.left + charRect.width / 2;
                         const charCenterY = charRect.top + charRect.height / 2;
-
-                        const dx = charCenterX - cursorX;
-                        const dy = charCenterY - cursorY;
+                        const dx = charCenterX - cursorX; const dy = charCenterY - cursorY;
                         const distance = Math.sqrt(dx * dx + dy * dy);
-
-                        let targetX = 0;
-                        let targetY = 0;
-                        let animDuration = DECAY_DURATION;
-                        let animEasing = 'easeOutQuad';
+                        let targetX = 0; let targetY = 0;
+                        let animDuration = DECAY_DURATION; let animEasing = 'easeOutQuad';
 
                         if (distance < PUSH_RADIUS) {
                             const force = (PUSH_RADIUS - distance) / PUSH_RADIUS;
                             const dirX = distance === 0 ? 0.01 : dx / distance;
                             const dirY = distance === 0 ? 0.01 : dy / distance;
-
                             targetX = dirX * PUSH_STRENGTH * force;
                             targetY = dirY * PUSH_STRENGTH * force;
-
                             animDuration = ACTIVE_PUSH_DURATION;
                             animEasing = 'linear';
                         }
-
-                        anime({
-                            targets: charSpan,
-                            translateX: targetX,
-                            translateY: targetY,
-                            duration: animDuration,
-                            easing: animEasing,
-                        });
+                        if (charSpan.isConnected) {
+                            anime({ targets: charSpan, translateX: targetX, translateY: targetY, duration: animDuration, easing: animEasing });
+                        }
                     });
+                }, { passive: true });
+            }
+
+            function fadeOutPageAndNavigate(targetUrl) {
+                if (isNavigatingAway) return;
+                isNavigatingAway = true;
+
+                anime.remove(allElementsToFadeOut);
+                anime.remove(Array.from(document.querySelectorAll('.logo-text span')));
+                anime.remove(Array.from(document.querySelectorAll('nav a span, .btn span')));
+
+                anime({
+                    targets: allElementsToFadeOut,
+                    opacity: 0,
+                    duration: FADE_OUT_DURATION,
+                    easing: 'easeOutQuad',
+                    complete: function() {
+                        window.location.href = targetUrl;
+                    }
                 });
             }
+
+            document.querySelectorAll('a[href]:not([href^="#"]):not([href=""])').forEach(element => {
+                element.addEventListener('click', function(event) {
+                    if (isNavigatingAway) { event.preventDefault(); return; }
+                    const targetUrl = element.href;
+                    const currentFullUrl = window.location.href;
+                    const targetFullUrl = new URL(targetUrl, currentFullUrl).href;
+                    const currentBaseUrl = currentFullUrl.split('#')[0];
+                    const targetBaseUrl = targetFullUrl.split('#')[0];
+
+                    if (targetBaseUrl !== currentBaseUrl) {
+                        event.preventDefault();
+                        fadeOutPageAndNavigate(targetFullUrl);
+                    }
+                });
+            });
+
+            document.querySelectorAll('button.js-navigate-btn[data-href]').forEach(element => {
+                element.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    if (isNavigatingAway) return;
+                    const targetUrl = element.dataset.href;
+                    if (targetUrl) {
+                        const currentFullUrl = window.location.href;
+                        const targetFullUrl = new URL(targetUrl, currentFullUrl).href;
+                        const currentBaseUrl = currentFullUrl.split('#')[0];
+                        const targetBaseUrl = targetFullUrl.split('#')[0];
+
+                        if (targetBaseUrl !== currentBaseUrl) {
+                            fadeOutPageAndNavigate(targetFullUrl);
+                        } else {
+                            window.location.href = targetFullUrl;
+                        }
+                    }
+                });
+            });
         });
     </script>
 </body>
