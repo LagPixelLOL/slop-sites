@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENARIC</title>
+    <title>ENARiC</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500&family=Audiowide&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         header {
             grid-row: 1 / 2;
             display: flex;
-            justify-content: flex-end;
+            justify-content: flex-start;
             align-items: center;
             padding-bottom: 20px;
             width: 100%;
@@ -54,7 +54,6 @@
         .logo-container {
             position: relative;
             display: inline-block;
-            margin-bottom: 5vh;
         }
 
         .logo-text {
@@ -115,12 +114,10 @@
         }
 
         .buttons-container {
-            grid-row: 3 / 4;
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 25px;
-            padding-top: 20px;
             width: 100%;
         }
 
@@ -216,7 +213,7 @@
     <header>
         <nav>
             <a href="#">ABOUT</a>
-            <a href="#">SERVICES</a>
+            <a href="https://v2ai.net">SERVICES</a>
             <a href="#">CONTACT</a>
         </nav>
     </header>
@@ -228,13 +225,11 @@
             </div>
             <h1 class="logo-text">ENARiC</h1>
         </div>
+        <div class="buttons-container">
+            <button class="btn">LEARN MORE</button>
+            <button class="btn" onclick="window.location.href='https://v2ai.net'">GET STARTED</button>
+        </div>
     </div>
-
-    <div class="buttons-container">
-        <button class="btn">LEARN MORE</button>
-        <button class="btn">GET STARTED</button>
-    </div>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             anime.set('#aura', {
@@ -278,7 +273,6 @@
                 const letterSpans = Array.from(el.querySelectorAll('span'));
                 el.addEventListener('mouseenter', () => {
                     if (letterSpans.length === 0) return;
-                    anime.remove(letterSpans);
                     anime({
                         targets: letterSpans,
                         color: '#FF0000',
@@ -289,7 +283,6 @@
                 });
                 el.addEventListener('mouseleave', () => {
                     if (letterSpans.length === 0) return;
-                    anime.remove(letterSpans);
                     anime({
                         targets: letterSpans,
                         color: originalColor,
@@ -302,22 +295,33 @@
 
             const follower = document.querySelector('.cursor-follower');
             if (follower) {
+                const isTouchDevice = 'ontouchstart' in window || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+                const followerMoveDuration = isTouchDevice ? 50 : 0;
+
                 anime.set(follower, {
                     left: '-100px', top: '-100px', opacity: 0,
                     translateX: '-50%', translateY: '-50%', scale: 1
                 });
+
                 document.addEventListener('mousemove', (e) => {
                     anime({
-                        targets: follower, left: e.clientX + 'px', top: e.clientY + 'px',
-                        opacity: 1, duration: 0, easing: 'linear'
+                        targets: follower,
+                        left: e.clientX + 'px',
+                        top: e.clientY + 'px',
+                        opacity: 1,
+                        duration: followerMoveDuration,
+                        easing: 'linear'
                     });
                 });
+
                 document.addEventListener('mouseenter', () => {
                     anime({ targets: follower, opacity: 1, duration: 300, easing: 'easeOutQuad' });
                 });
+
                 document.addEventListener('mouseleave', () => {
                     anime({ targets: follower, opacity: 0, duration: 300, easing: 'easeOutQuad' });
                 });
+
                 const interactiveElements = document.querySelectorAll('nav a, .btn, .logo-text');
                 interactiveElements.forEach(el => {
                     el.addEventListener('mouseenter', () => {
