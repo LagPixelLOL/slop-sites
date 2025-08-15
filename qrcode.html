@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <title>Animated QR Code Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+          colors: { backdrop: '#0b1220' }
+        }
+      }
+    }
+  </script>
+  <!-- QR code matrix generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <style>
+    html, body { height: 100%; }
+    .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.35); border-radius: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .input-number::-webkit-outer-spin-button,
+    .input-number::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .input-number { -moz-appearance: textfield; }
+  </style>
+</head>
+<body class="h-full bg-backdrop text-slate-200 font-sans">
+  <div class="min-h-full">
+    <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <h1 class="text-xl sm:text-2xl font-semibold text-slate-100">Animated QR Code Generator • Dot Style</h1>
+        <div class="flex items-center gap-3">
+          <button id="btn-pause" class="rounded-md px-3 py-1.5 text-sm font-medium bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700">Pause</button>
+          <button id="btn-download" class="rounded-md px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500">Download PNG</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Controls -->
+      <section class="lg:col-span-5">
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 sm:p-5">
+          <h2 class="font-semibold text-lg mb-3 text-slate-100">QR Content</h2>
+          <div class="space-y-3">
+            <label class="block">
+              <span class="text-sm font-medium text-slate-300">Text / URL</span>
+              <input id="inp-text" type="text"
+                     class="mt-1 block w-full rounded-md bg-slate-900 text-slate-200 placeholder-slate-500 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500"
+                     placeholder="https://example.com" value="https://example.com" />
+            </label>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Error Correction</span>
+                <select id="inp-ecl"
+                        class="mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500">
+                  <option value="L">L (low)</option>
+                  <option value="M" selected>M (medium)</option>
+                  <option value="Q">Q (quartile)</option>
+                  <option value="H">H (high)</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Module Size (px)</span>
+                <input id="inp-module" type="number" min="2" max="24" step="1" value="10"
+                       class="input-number mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500" />
+              </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Quiet Zone (modules)</span>
+                <input id="inp-margin" type="number" min="0" max="16" step="1" value="4"
+                       class="input-number mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500" />
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Dot Size (%)</span>
+                <input id="inp-dot" type="range" min="50" max="100" step="1" value="88"
+                       class="mt-3 w-full accent-emerald-500" />
+              </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Background</span>
+                <input id="inp-bg" type="color" value="#0b1220"
+                       class="mt-1 block w-full h-10 rounded-md border border-slate-700 bg-slate-900 p-1" />
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Dot Base Color</span>
+                <input id="inp-dark" type="color" value="#e5e7eb"
+                       class="mt-1 block w-full h-10 rounded-md border border-slate-700 bg-slate-900 p-1" />
+              </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-sm font-medium text-slate-300">Target FPS</span>
+                <input id="inp-fps" type="number" min="1" max="60" step="1" value="60"
+                       class="input-number mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500" />
+              </label>
+              <label class="inline-flex items-center gap-2 text-sm mt-7">
+                <input id="chk-square-finders" type="checkbox" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" checked />
+                Keep square finder patterns
+              </label>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+              <button id="btn-regenerate" class="rounded-md px-3 py-2 text-sm font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100">Regenerate QR</button>
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input id="chk-live" type="checkbox" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" checked />
+                Live update on typing
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 sm:p-5 mt-6">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-lg text-slate-100">Animation Layers</h2>
+            <div class="flex gap-2">
+              <select id="sel-new-layer" class="rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500">
+                <option value="sweep">Sweep</option>
+                <option value="ripple">Ripple</option>
+                <option value="rainbow">Rainbow</option>
+                <option value="twinkle">Twinkle</option>
+                <option value="snake">Snake</option>
+              </select>
+              <button id="btn-add-layer" class="rounded-md px-3 py-2 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500">Add Layer</button>
+            </div>
+          </div>
+
+          <div id="layers" class="mt-4 space-y-4 max-h-[50vh] overflow-y-auto pr-1 scrollbar-thin"></div>
+        </div>
+      </section>
+
+      <!-- Preview -->
+      <section class="lg:col-span-7">
+        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 sm:p-6 flex flex-col items-center justify-center">
+          <div class="w-full flex items-center justify-center">
+            <canvas id="qr-canvas" class="rounded-lg border border-slate-800 shadow-sm" width="512" height="512"></canvas>
+          </div>
+          <p class="text-xs text-slate-400 mt-3">
+            Tip: For maximum scan reliability, keep strong contrast between background and dots. Some scanners may struggle with inverted (light dots on dark) designs.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const mix = (c1, c2, t) => ({
+      r: Math.round(lerp(c1.r, c2.r, t)),
+      g: Math.round(lerp(c1.g, c2.g, t)),
+      b: Math.round(lerp(c1.b, c2.b, t))
+    });
+    const hexToRgb = (hex) => {
+      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+      return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : { r: 0, g: 0, b: 0 };
+    };
+    const rgbToHex = ({ r, g, b }) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    const hsvToRgb = (h, s, v) => {
+      h = ((h % 360) + 360) % 360;
+      const c = v * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = v - c;
+      let r=0,g=0,b=0;
+      if (h < 60) { r=c; g=x; b=0; }
+      else if (h < 120) { r=x; g=c; b=0; }
+      else if (h < 180) { r=0; g=c; b=x; }
+      else if (h < 240) { r=0; g=x; b=c; }
+      else if (h < 300) { r=x; g=0; b=c; }
+      else { r=c; g=0; b=x; }
+      return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
+    };
+    const now = () => performance.now() / 1000;
+    function hash2(i, j) {
+      let x = i * 374761393 + j * 668265263;
+      x = (x ^ (x >> 13)) >>> 0;
+      x = (x * 1274126177) >>> 0;
+      return (x & 0xffffffff) / 0xffffffff;
+    }
+
+    // ---------- State ----------
+    const state = {
+      text: "https://example.com",
+      ecl: "M",
+      moduleSize: 10,
+      margin: 4,
+      bgColor: "#0b1220",
+      darkColor: "#e5e7eb",
+      dotPercent: 88,
+      fps: 60,
+      playing: true,
+      keepSquareFinders: true,
+      layers: [],
+      qr: { count: 0, modules: [], pathGrid: [], idxGrid: [], pathDark: [], idxDark: [] }
+    };
+
+    // ---------- DOM ----------
+    const canvas = document.getElementById('qr-canvas');
+    const ctx = canvas.getContext('2d');
+    const inpText = document.getElementById('inp-text');
+    const inpEcl = document.getElementById('inp-ecl');
+    const inpModule = document.getElementById('inp-module');
+    const inpMargin = document.getElementById('inp-margin');
+    const inpBg = document.getElementById('inp-bg');
+    const inpDark = document.getElementById('inp-dark');
+    const inpFps = document.getElementById('inp-fps');
+    const inpDot = document.getElementById('inp-dot');
+    const chkLive = document.getElementById('chk-live');
+    const btnRegenerate = document.getElementById('btn-regenerate');
+    const btnPause = document.getElementById('btn-pause');
+    const btnDownload = document.getElementById('btn-download');
+    const layersEl = document.getElementById('layers');
+    const selNewLayer = document.getElementById('sel-new-layer');
+    const btnAddLayer = document.getElementById('btn-add-layer');
+    const chkSquareFinders = document.getElementById('chk-square-finders');
+
+    // ---------- QR Generation ----------
+    function generateQRMatrix() {
+      try {
+        const qr = qrcode(0, state.ecl);
+        qr.addData(state.text || "");
+        qr.make();
+        const n = qr.getModuleCount();
+        const matrix = [];
+        for (let r = 0; r < n; r++) {
+          const row = [];
+          for (let c = 0; c < n; c++) row.push(qr.isDark(r, c));
+          matrix.push(row);
+        }
+        state.qr.count = n;
+        state.qr.modules = matrix;
+        buildPaths();
+        resizeCanvas();
+      } catch (e) {
+        console.error('QR generation error:', e);
+      }
+    }
+
+    function buildPaths() {
+      const n = state.qr.count;
+      // serpentine over all cells
+      const pathGrid = [];
+      for (let r = 0; r < n; r++) {
+        if (r % 2 === 0) for (let c = 0; c < n; c++) pathGrid.push([r, c]);
+        else for (let c = n - 1; c >= 0; c--) pathGrid.push([r, c]);
+      }
+      const idxGrid = Array.from({ length: n }, () => Array(n).fill(-1));
+      pathGrid.forEach(([r, c], i) => { idxGrid[r][c] = i; });
+
+      // dark-only path but in serpentine order to preserve continuity perception
+      const pathDark = pathGrid.filter(([r, c]) => state.qr.modules[r][c]);
+      const idxDark = Array.from({ length: n }, () => Array(n).fill(-1));
+      pathDark.forEach(([r, c], i) => { idxDark[r][c] = i; });
+
+      state.qr.pathGrid = pathGrid;
+      state.qr.idxGrid = idxGrid;
+      state.qr.pathDark = pathDark;
+      state.qr.idxDark = idxDark;
+    }
+
+    function resizeCanvas() {
+      const n = state.qr.count || 21;
+      const size = (n + state.margin * 2) * state.moduleSize;
+      const maxSize = Math.min(window.innerWidth - 48, 900);
+      const s = Math.min(size, maxSize);
+      const scale = Math.max(1, Math.floor(s / (n + state.margin * 2)));
+      const actualSize = (n + state.margin * 2) * scale;
+      canvas.width = actualSize;
+      canvas.height = actualSize;
+      state.renderScale = scale;
+    }
+
+    // ---------- Layer Factory ----------
+    let nextLayerId = 1;
+    function defaultLayer(type) {
+      const id = nextLayerId++;
+      switch (type) {
+        case 'sweep':
+          return { id, type, name: `Sweep #${id}`, enabled: true,
+            direction: 'x', speed: 0.25, frequency: 1.0,
+            colorA: '#22d3ee', colorB: '#10b981', alpha: 0.6 };
+        case 'ripple':
+          return { id, type, name: `Ripple #${id}`, enabled: true,
+            speed: 0.35, frequency: 3.0,
+            colorA: '#818cf8', colorB: '#06b6d4', alpha: 0.55 };
+        case 'rainbow':
+          return { id, type, name: `Rainbow #${id}`, enabled: true,
+            direction: 'x', speed: 0.2, saturation: 1.0, value: 1.0, alpha: 0.5, offset: 0.0 };
+        case 'twinkle':
+          return { id, type, name: `Twinkle #${id}`, enabled: true,
+            speed: 1.0, density: 0.25, color: '#fbbf24', alpha: 0.5 };
+        case 'snake':
+          return { id, type, name: `Snake #${id}`, enabled: true,
+            path: 'grid', wrap: true, speed: 30, // modules per second
+            lengthPct: 12, // % of path length
+            headColor: '#34d399', tailColor: '#22d3ee', alpha: 0.85 };
+        default:
+          return null;
+      }
+    }
+
+    // ---------- Layer Rendering ----------
+    function layerColor(layer, r, c, n, t) {
+      const x = (c + 0.5) / n;
+      const y = (r + 0.5) / n;
+      const cx = 0.5, cy = 0.5;
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.hypot(dx, dy) / Math.hypot(0.5, 0.5);
+      const TAU = Math.PI * 2;
+
+      if (!layer.enabled) return null;
+
+      switch (layer.type) {
+        case 'sweep': {
+          const dir = layer.direction === 'y' ? y : x;
+          const f = layer.frequency || 1.0;
+          const phase = (dir * f - t * layer.speed) * TAU;
+          const v = 0.5 + 0.5 * Math.sin(phase);
+          const ca = hexToRgb(layer.colorA), cb = hexToRgb(layer.colorB);
+          const col = mix(ca, cb, v);
+          return { color: col, a: layer.alpha };
+        }
+        case 'ripple': {
+          const f = layer.frequency || 3.0;
+          const phase = (dist * f - t * layer.speed) * TAU;
+          const v = 0.5 + 0.5 * Math.sin(phase);
+          const ca = hexToRgb(layer.colorA), cb = hexToRgb(layer.colorB);
+          const col = mix(ca, cb, v);
+          return { color: col, a: layer.alpha };
+        }
+        case 'rainbow': {
+          const axis = (layer.direction === 'y') ? y : x;
+          const hue = ((axis + (layer.offset || 0)) * 360 + t * layer.speed * 360) % 360;
+          const col = hsvToRgb(hue, clamp(layer.saturation ?? 1.0, 0, 1), clamp(layer.value ?? 1.0, 0, 1));
+          return { color: col, a: layer.alpha };
+        }
+        case 'twinkle': {
+          const h = hash2(r, c);
+          if (h > layer.density) return null;
+          const phase = h * TAU * 4;
+          const v = 0.5 + 0.5 * Math.sin(phase + t * layer.speed * TAU);
+          const base = hexToRgb(layer.color);
+          const col = { r: Math.round(base.r * v), g: Math.round(base.g * v), b: Math.round(base.b * v) };
+          return { color: col, a: layer.alpha * v };
+        }
+        case 'snake': {
+          // Choose path space
+          const useDark = (layer.path === 'dark');
+          const idxMap = useDark ? state.qr.idxDark : state.qr.idxGrid;
+          const pathLen = (useDark ? state.qr.pathDark.length : state.qr.pathGrid.length) || 0;
+          if (!pathLen) return null;
+          const idx = idxMap[r][c];
+          if (idx < 0) return null;
+
+          const lengthModules = Math.max(1, Math.round(pathLen * clamp((layer.lengthPct ?? 10) / 100, 0.01, 0.5)));
+          // head position in module units along the path
+          let head = (t * (layer.speed || 0));
+          if (layer.wrap) head = head % pathLen;
+          else head = clamp(head, 0, pathLen - 1);
+
+          let v = head - idx;
+          if (layer.wrap && v < 0) v += pathLen;
+          // Only color modules within the "snake" segment behind head
+          if (v < 0 || v > lengthModules) return null;
+
+          const f = 1 - (v / lengthModules); // 1 at head, 0 at tail
+          const headCol = hexToRgb(layer.headColor || '#34d399');
+          const tailCol = hexToRgb(layer.tailColor || '#22d3ee');
+          const col = mix(tailCol, headCol, f);
+          // ease alpha slightly
+          const eased = f * f * (3 - 2 * f); // smoothstep
+          return { color: col, a: clamp((layer.alpha ?? 0.85) * eased, 0, 1) };
+        }
+        default: return null;
+      }
+    }
+
+    function composeColor(base, layers, r, c, n, t) {
+      let out = { r: base.r, g: base.g, b: base.b };
+      for (const L of layers) {
+        const sample = layerColor(L, r, c, n, t);
+        if (!sample) continue;
+        const a = clamp(sample.a ?? 0.5, 0, 1);
+        out = {
+          r: Math.round(out.r * (1 - a) + sample.color.r * a),
+          g: Math.round(out.g * (1 - a) + sample.color.g * a),
+          b: Math.round(out.b * (1 - a) + sample.color.b * a),
+        };
+      }
+      return out;
+    }
+
+    // ---------- Finder region detection ----------
+    function inFinder(r, c, n) {
+      const inTL = (r <= 6 && c <= 6);
+      const inTR = (r <= 6 && c >= n - 7);
+      const inBL = (r >= n - 7 && c <= 6);
+      return inTL || inTR || inBL;
+    }
+
+    // ---------- Drawing (Dot Style) ----------
+    function drawFrame(t) {
+      const n = state.qr.count;
+      if (!n) return;
+      const bg = hexToRgb(state.bgColor);
+      const baseDot = hexToRgb(state.darkColor);
+      const m = state.renderScale || state.moduleSize;
+      const margin = state.margin;
+      const radius = (m * (state.dotPercent / 100)) / 2;
+
+      // Background
+      ctx.fillStyle = rgbToHex(bg);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw modules
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (!state.qr.modules[r][c]) continue;
+
+          const col = composeColor(baseDot, state.layers, r, c, n, t);
+          ctx.fillStyle = rgbToHex(col);
+
+          const x = (c + margin) * m;
+          const y = (r + margin) * m;
+
+          // Keep finders square for better scan stability (optional)
+          if (state.keepSquareFinders && inFinder(r, c, n)) {
+            ctx.fillRect(x, y, m, m);
+          } else {
+            const cx = x + m / 2;
+            const cy = y + m / 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    // ---------- Animation Loop ----------
+    let lastFrameTime = 0;
+    function tickFrame(ts) {
+      if (!state.playing) return;
+      const sec = ts / 1000;
+      const minDt = 1 / clamp(state.fps, 1, 60);
+      if (sec - lastFrameTime >= minDt - 1e-4) {
+        lastFrameTime = sec;
+        drawFrame(now());
+      }
+      requestAnimationFrame(tickFrame);
+    }
+
+    // ---------- UI Rendering for Layers ----------
+    function renderLayers() {
+      layersEl.innerHTML = '';
+      state.layers.forEach((L, idx) => {
+        const card = document.createElement('div');
+        card.className = "border border-slate-800 rounded-lg p-3 sm:p-4 bg-slate-900";
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" ${L.enabled ? 'checked' : ''} class="layer-toggle rounded border-slate-600 text-emerald-500 focus:ring-emerald-500">
+              <input type="text" value="${L.name}" class="layer-name text-sm font-medium bg-transparent outline-none border-b border-transparent focus:border-emerald-400 text-slate-100" />
+              <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">${L.type}</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button class="move-up text-xs px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 text-slate-200" title="Move up">▲</button>
+              <button class="move-down text-xs px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 text-slate-200" title="Move down">▼</button>
+              <button class="remove text-xs px-2 py-1 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10" title="Remove">Remove</button>
+            </div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm"></div>
+        `;
+        const controls = card.querySelector('div.mt-3');
+
+        function sliderRow(label, min, max, step, value, oninput) {
+          const wrap = document.createElement('label');
+          wrap.className = 'block';
+          wrap.innerHTML = `<span class="block text-xs text-slate-400 mb-1">${label} <span class="val text-slate-200 font-medium"></span></span>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" class="w-full accent-emerald-500">`;
+          const rng = wrap.querySelector('input');
+          const valSpan = wrap.querySelector('.val');
+          const setVal = v => valSpan.textContent = (typeof v === 'number') ? Number(v).toFixed(2) : v;
+          setVal(value);
+          rng.addEventListener('input', (e) => { const v = parseFloat(e.target.value); oninput(v); setVal(v); });
+          return wrap;
+        }
+        function pickRow(label, value, oninput) {
+          const wrap = document.createElement('label');
+          wrap.className = 'block';
+          wrap.innerHTML = `<span class="block text-xs text-slate-400 mb-1">${label}</span>
+            <input type="color" value="${value}" class="w-full h-9 rounded border border-slate-700 bg-slate-900 p-1">`;
+          const inp = wrap.querySelector('input');
+          inp.addEventListener('input', (e) => oninput(e.target.value));
+          return wrap;
+        }
+        function selectRow(label, value, options, oninput) {
+          const wrap = document.createElement('label');
+          wrap.className = 'block';
+          wrap.innerHTML = `<span class="block text-xs text-slate-400 mb-1">${label}</span>
+            <select class="w-full rounded bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500"></select>`;
+          const sel = wrap.querySelector('select');
+          options.forEach(([val, text]) => {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = text;
+            if (val === value) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('input', (e) => oninput(e.target.value));
+          return wrap;
+        }
+        function checkboxRow(label, checked, oninput) {
+          const wrap = document.createElement('label');
+          wrap.className = 'inline-flex items-center gap-2 mt-2';
+          wrap.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"><span class="text-xs text-slate-400">${label}</span>`;
+          const inp = wrap.querySelector('input');
+          inp.addEventListener('input', (e) => oninput(e.target.checked));
+          return wrap;
+        }
+
+        // Type-specific controls
+        if (L.type === 'sweep') {
+          controls.append(
+            selectRow('Direction', L.direction, [['x','Horizontal'],['y','Vertical']], v => L.direction = v),
+            sliderRow('Speed (cycles/sec)', 0, 2, 0.01, L.speed, v => L.speed = v),
+            sliderRow('Frequency (bands)', 0.1, 5, 0.01, L.frequency, v => L.frequency = v),
+            pickRow('Color A', L.colorA, v => L.colorA = v),
+            pickRow('Color B', L.colorB, v => L.colorB = v),
+            sliderRow('Opacity', 0, 1, 0.01, L.alpha, v => L.alpha = v)
+          );
+        }
+        if (L.type === 'ripple') {
+          controls.append(
+            sliderRow('Speed (cycles/sec)', 0, 2, 0.01, L.speed, v => L.speed = v),
+            sliderRow('Frequency (rings)', 1, 10, 0.1, L.frequency, v => L.frequency = v),
+            pickRow('Color A', L.colorA, v => L.colorA = v),
+            pickRow('Color B', L.colorB, v => L.colorB = v),
+            sliderRow('Opacity', 0, 1, 0.01, L.alpha, v => L.alpha = v)
+          );
+        }
+        if (L.type === 'rainbow') {
+          controls.append(
+            selectRow('Axis', L.direction, [['x','Horizontal'],['y','Vertical']], v => L.direction = v),
+            sliderRow('Speed (cycles/sec)', 0, 2, 0.01, L.speed, v => L.speed = v),
+            sliderRow('Saturation', 0, 1, 0.01, L.saturation, v => L.saturation = v),
+            sliderRow('Brightness', 0, 1, 0.01, L.value, v => L.value = v),
+            sliderRow('Offset', 0, 1, 0.01, L.offset, v => L.offset = v),
+            sliderRow('Opacity', 0, 1, 0.01, L.alpha, v => L.alpha = v)
+          );
+        }
+        if (L.type === 'twinkle') {
+          controls.append(
+            sliderRow('Speed (cycles/sec)', 0, 4, 0.01, L.speed, v => L.speed = v),
+            sliderRow('Density', 0, 1, 0.01, L.density, v => L.density = v),
+            pickRow('Color', L.color, v => L.color = v),
+            sliderRow('Opacity', 0, 1, 0.01, L.alpha, v => L.alpha = v)
+          );
+        }
+        if (L.type === 'snake') {
+          controls.append(
+            selectRow('Path', L.path, [['grid','Grid (all cells)'],['dark','Dark modules only']], v => L.path = v),
+            sliderRow('Speed (modules/sec)', 0, 200, 1, L.speed, v => L.speed = v),
+            sliderRow('Length (%)', 1, 40, 1, L.lengthPct, v => L.lengthPct = v),
+            pickRow('Head Color', L.headColor, v => L.headColor = v),
+            pickRow('Tail Color', L.tailColor, v => L.tailColor = v),
+            sliderRow('Opacity', 0, 1, 0.01, L.alpha, v => L.alpha = v),
+            checkboxRow('Wrap around', L.wrap, v => L.wrap = v)
+          );
+        }
+
+        // Common handlers
+        card.querySelector('.layer-name').addEventListener('input', e => { L.name = e.target.value; });
+        card.querySelector('.layer-toggle').addEventListener('input', e => { L.enabled = e.target.checked; });
+        card.querySelector('.remove').addEventListener('click', () => {
+          state.layers.splice(idx, 1);
+          renderLayers();
+        });
+        card.querySelector('.move-up').addEventListener('click', () => {
+          if (idx > 0) {
+            const tmp = state.layers[idx - 1];
+            state.layers[idx - 1] = state.layers[idx];
+            state.layers[idx] = tmp;
+            renderLayers();
+          }
+        });
+        card.querySelector('.move-down').addEventListener('click', () => {
+          if (idx < state.layers.length - 1) {
+            const tmp = state.layers[idx + 1];
+            state.layers[idx + 1] = state.layers[idx];
+            state.layers[idx] = tmp;
+            renderLayers();
+          }
+        });
+
+        layersEl.appendChild(card);
+      });
+    }
+
+    // ---------- Event Wiring ----------
+    function wireInputs() {
+      const updateQR = () => {
+        state.text = inpText.value;
+        state.ecl = inpEcl.value;
+        state.moduleSize = clamp(parseInt(inpModule.value || '10'), 2, 64);
+        state.margin = clamp(parseInt(inpMargin.value || '4'), 0, 32);
+        state.bgColor = inpBg.value;
+        state.darkColor = inpDark.value;
+        state.dotPercent = clamp(parseInt(inpDot.value || '88'), 40, 100);
+        state.fps = clamp(parseInt(inpFps.value || '60'), 1, 60);
+        state.keepSquareFinders = chkSquareFinders.checked;
+        generateQRMatrix();
+        drawFrame(now());
+      };
+
+      inpText.addEventListener('input', () => { if (chkLive.checked) updateQR(); });
+      [inpEcl, inpModule, inpMargin, inpBg, inpDark, inpDot, inpFps, chkSquareFinders].forEach(el => {
+        el.addEventListener('input', updateQR);
+      });
+      btnRegenerate.addEventListener('click', updateQR);
+      window.addEventListener('resize', () => { resizeCanvas(); });
+
+      btnPause.addEventListener('click', () => {
+        state.playing = !state.playing;
+        btnPause.textContent = state.playing ? 'Pause' : 'Play';
+        if (state.playing) requestAnimationFrame(tickFrame);
+      });
+
+      btnDownload.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = 'animated-qr.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+
+      btnAddLayer.addEventListener('click', () => {
+        const type = selNewLayer.value;
+        const L = defaultLayer(type);
+        if (L) {
+          state.layers.push(L);
+          renderLayers();
+        }
+      });
+    }
+
+    // ---------- Init ----------
+    function init() {
+      state.layers = [
+        defaultLayer('sweep'),
+        defaultLayer('snake'),
+        defaultLayer('twinkle')
+      ];
+      renderLayers();
+      wireInputs();
+      generateQRMatrix();
+      drawFrame(now());
+      requestAnimationFrame(tickFrame);
+    }
+
+    init();
+  </script>
+</body>
+</html>
