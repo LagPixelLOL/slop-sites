@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gemini Image Generator (Google AI Studio + OpenRouter)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0b0f17',
+            panel: '#111827',
+            border: '#1f2937',
+            accent: '#22d3ee',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-thumb { background: #374151; border-radius: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+
+    /* Disable resizing and hide the corner handle */
+    textarea {
+      resize: none !important;
+      overflow: auto; /* keep scroll behavior */
+    }
+    /* Hide WebKit's resize affordance if any */
+    textarea::-webkit-resizer { display: none; }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen">
+  <div class="max-w-4xl mx-auto px-4 py-6">
+    <header class="flex items-start sm:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">Gemini Image Generator</h1>
+        <p class="text-sm text-gray-400 mt-1">Type a prompt. Paste images directly into the prompt box (Ctrl/Cmd+V). Your API key is saved locally in your browser only.</p>
+      </div>
+      <div class="flex gap-3 items-center">
+        <a class="text-xs text-gray-400 hover:text-gray-200 underline" href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noreferrer">Google Docs</a>
+        <a class="text-xs text-gray-400 hover:text-gray-200 underline" href="https://openrouter.ai/docs/features/multimodal/image-generation" target="_blank" rel="noreferrer">OpenRouter Docs</a>
+      </div>
+    </header>
+
+    <section class="bg-panel border border-border rounded-xl p-4 sm:p-6 space-y-5">
+      <!-- Endpoint -->
+      <div class="space-y-2">
+        <label for="endpoint" class="block text-sm text-gray-300">Endpoint</label>
+        <select id="endpoint" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60">
+          <option value="google">Google AI Studio - model: gemini-2.5-flash-image-preview</option>
+          <option value="openrouter">OpenRouter - model: google/gemini-2.5-flash-image-preview</option>
+        </select>
+        <p class="text-xs text-gray-500">Model name is tied to the selected endpoint.</p>
+      </div>
+
+      <!-- API Key -->
+      <div class="space-y-2">
+        <label id="apiKeyLabel" for="apiKey" class="block text-sm text-gray-300">Google API Key</label>
+        <div class="flex items-center gap-2">
+          <input id="apiKey" type="password" placeholder="AIza..." class="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" />
+          <button id="toggleKey" class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg">Show</button>
+          <button id="clearKey" class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg">Clear</button>
+        </div>
+        <p class="text-xs text-gray-500">Provider-specific API key.</p>
+      </div>
+
+      <!-- System message (non-resizable, same height as prompt) -->
+      <div class="space-y-2">
+        <label for="systemMsg" class="block text-sm text-gray-300">System Message</label>
+        <textarea id="systemMsg" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Optional: overarching instructions for the model."></textarea>
+        <p class="text-xs text-gray-500">System message to instruct the model.</p>
+      </div>
+
+      <!-- Prompt + paste images (non-resizable) -->
+      <div class="space-y-2">
+        <label for="prompt" class="block text-sm text-gray-300">Prompt</label>
+        <textarea id="prompt" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Describe the image you want. Tip: paste images here with Ctrl/Cmd+V to condition the generation."></textarea>
+        <p class="text-xs text-gray-500">You can paste PNG/JPEG/GIF/WebP images. Max 5 images, 32 MB each.</p>
+      </div>
+
+      <!-- Pasted images preview (fit without cropping) -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="text-sm text-gray-300">Pasted Images</p>
+          <div class="flex gap-2">
+            <button id="clearImages" class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg">Clear images</button>
+          </div>
+        </div>
+        <div id="thumbs" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+        <template id="thumbTpl">
+          <div class="relative group rounded-lg border border-border bg-black/20 h-32 flex items-center justify-center">
+            <img class="max-h-full max-w-full object-contain" />
+            <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Remove</button>
+            <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-[10px] truncate"></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex flex-wrap gap-3 items-center">
+        <button id="generateBtn" class="px-4 py-2 bg-accent/20 text-accent hover:bg-accent/30 rounded-lg font-medium border border-accent/40">Generate</button>
+        <button id="exampleBtn" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Fill example</button>
+        <div id="status" class="text-sm text-gray-400"></div>
+      </div>
+
+      <!-- Results -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-sm text-gray-300">Results</p>
+          <button id="clearResults" class="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg">Clear results</button>
+        </div>
+        <div id="results" class="grid sm:grid-cols-2 gap-4"></div>
+
+        <!-- Image card (fit without cropping) -->
+        <template id="resultImageTpl">
+          <div class="rounded-lg overflow-hidden border border-border">
+            <div class="bg-black/30 h-80 sm:h-96 flex items-center justify-center">
+              <img class="max-h-full max-w-full object-contain" />
+            </div>
+            <div class="flex items-center justify-between gap-2 p-2 bg-black/30">
+              <div class="text-xs text-gray-400" data-role="mime"></div>
+              <div class="flex gap-2" data-role="actions">
+                <a data-role="download" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs" download>Download</a>
+                <button data-role="copy" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs">Copy image</button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Text card -->
+        <template id="resultTextTpl">
+          <div class="rounded-lg overflow-hidden border border-border bg-black/20">
+            <div class="p-3 text-xs text-gray-400 border-b border-border">Text</div>
+            <pre class="p-3 text-sm whitespace-pre-wrap break-words" data-role="text"></pre>
+            <div class="flex items-center justify-end gap-2 p-2 bg-black/30">
+              <button data-role="copy-text" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs">Copy text</button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Info panel (non-error metadata like usage, promptFeedback) -->
+      <div id="infoPanel" class="hidden">
+        <div class="rounded-lg border border-indigo-800 bg-indigo-900/30">
+          <div class="px-4 py-2 border-b border-indigo-800 text-indigo-300 font-medium flex items-center justify-between">
+            <span>Info</span>
+            <button id="clearInfoBtn" class="px-2 py-1 text-xs bg-indigo-800/50 hover:bg-indigo-800/70 rounded">Clear</button>
+          </div>
+          <pre id="infoPre" class="p-4 text-sm overflow-auto"></pre>
+        </div>
+      </div>
+
+      <!-- Error panel (actual errors only) -->
+      <div id="errorPanel" class="hidden">
+        <div class="rounded-lg border border-red-800 bg-red-900/30">
+          <div class="px-4 py-2 border-b border-red-800 text-red-300 font-medium">Error</div>
+          <pre id="errorPre" class="p-4 text-sm overflow-auto"></pre>
+        </div>
+      </div>
+
+      <!-- Spinner -->
+      <div id="spinner" class="hidden flex items-center gap-2 text-sm text-gray-300">
+        <svg class="animate-spin h-5 w-5 text-accent" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+        </svg>
+        <span>Generating...</span>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = (sel, ctx = document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+    const PROVIDERS = {
+      google: {
+        id: 'google',
+        name: 'Google AI Studio',
+        model: 'gemini-2.5-flash-image-preview',
+        apiKeyStorage: 'gemini_api_key',
+        apiKeyLabel: 'Google API Key',
+        apiKeyPlaceholder: 'AIza...',
+        buildRequest: buildGoogleRequest,
+        parseResponse: parseGoogleResponse,
+        url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        headers: (apiKey) => ({
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        }),
+        info: (data) => {
+          const info = {};
+          if (data?.promptFeedback) info.promptFeedback = data.promptFeedback;
+          if (data?.usageMetadata) info.usageMetadata = data.usageMetadata;
+          return info;
+        }
+      },
+      openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        model: 'google/gemini-2.5-flash-image-preview',
+        apiKeyStorage: 'openrouter_api_key',
+        apiKeyLabel: 'OpenRouter API Key',
+        apiKeyPlaceholder: 'sk-or-v1-...',
+        buildRequest: buildOpenRouterRequest,
+        parseResponse: parseOpenRouterResponse,
+        url: () => 'https://openrouter.ai/api/v1/chat/completions',
+        headers: (apiKey) => ({
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          // Optional but recommended by OpenRouter
+          'HTTP-Referer': location.origin,
+          'X-Title': 'Gemini Image Generator'
+        }),
+        info: (data) => {
+          const info = {};
+          if (data?.id) info.id = data.id;
+          if (data?.model) info.model = data.model;
+          if (data?.usage) info.usage = data.usage;
+          return info;
+        }
+      }
+    };
+
+    const state = {
+      provider: 'google',
+      images: [], // { mime, base64, name, size, dataUrl }
+      maxImages: 5,
+      maxBytes: 32 * 1024 * 1024, // 32MB
+    };
+
+    const els = {
+      endpoint: $('#endpoint'),
+      apiKeyLabel: $('#apiKeyLabel'),
+      apiKey: $('#apiKey'),
+      toggleKey: $('#toggleKey'),
+      clearKey: $('#clearKey'),
+      systemMsg: $('#systemMsg'),
+      prompt: $('#prompt'),
+      clearImages: $('#clearImages'),
+      thumbs: $('#thumbs'),
+      thumbTpl: $('#thumbTpl'),
+      generateBtn: $('#generateBtn'),
+      exampleBtn: $('#exampleBtn'),
+      status: $('#status'),
+      results: $('#results'),
+      resultImageTpl: $('#resultImageTpl'),
+      resultTextTpl: $('#resultTextTpl'),
+      clearResults: $('#clearResults'),
+      infoPanel: $('#infoPanel'),
+      infoPre: $('#infoPre'),
+      clearInfoBtn: $('#clearInfoBtn'),
+      errorPanel: $('#errorPanel'),
+      errorPre: $('#errorPre'),
+      spinner: $('#spinner'),
+    };
+
+    // Load/save provider + API keys
+    function loadProvider() {
+      const saved = localStorage.getItem('image_gen_provider') || 'google';
+      state.provider = PROVIDERS[saved] ? saved : 'google';
+      els.endpoint.value = state.provider;
+      applyProviderUI();
+    }
+    function saveProvider() {
+      localStorage.setItem('image_gen_provider', state.provider);
+    }
+    function loadApiKeyForCurrentProvider() {
+      const storageKey = PROVIDERS[state.provider].apiKeyStorage;
+      return localStorage.getItem(storageKey) || '';
+    }
+    function saveApiKey() {
+      const storageKey = PROVIDERS[state.provider].apiKeyStorage;
+      localStorage.setItem(storageKey, els.apiKey.value.trim());
+    }
+    function clearApiKey() {
+      const storageKey = PROVIDERS[state.provider].apiKeyStorage;
+      localStorage.removeItem(storageKey);
+      els.apiKey.value = '';
+    }
+
+    // System message storage
+    const SYSTEM_MSG_KEY = 'image_gen_system_message';
+    function loadSystemMsg() {
+      return localStorage.getItem(SYSTEM_MSG_KEY) || '';
+    }
+    function saveSystemMsg() {
+      localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value);
+    }
+
+    function applyProviderUI() {
+      const p = PROVIDERS[state.provider];
+      els.apiKeyLabel.textContent = p.apiKeyLabel;
+      els.apiKey.placeholder = p.apiKeyPlaceholder;
+      els.apiKey.value = loadApiKeyForCurrentProvider();
+      // Load system message (global)
+      els.systemMsg.value = loadSystemMsg();
+      saveProvider();
+      setStatus(`Using ${p.name} (${p.model}).`);
+      clearError();
+      clearInfo();
+    }
+
+    // UI helpers
+    function setStatus(msg) { els.status.textContent = msg || ''; }
+    function showSpinner(on) { els.spinner.classList.toggle('hidden', !on); }
+    function showError(objOrText) {
+      els.errorPanel.classList.remove('hidden');
+      try {
+        if (typeof objOrText === 'string') {
+          els.errorPre.textContent = objOrText;
+        } else {
+          els.errorPre.textContent = JSON.stringify(objOrText, null, 2);
+        }
+      } catch {
+        els.errorPre.textContent = String(objOrText);
+      }
+    }
+    function clearError() {
+      els.errorPanel.classList.add('hidden');
+      els.errorPre.textContent = '';
+    }
+    function showInfo(obj) {
+      els.infoPanel.classList.remove('hidden');
+      try {
+        els.infoPre.textContent = JSON.stringify(obj, null, 2);
+      } catch {
+        els.infoPre.textContent = String(obj);
+      }
+    }
+    function clearInfo() {
+      els.infoPanel.classList.add('hidden');
+      els.infoPre.textContent = '';
+    }
+
+    els.clearInfoBtn.addEventListener('click', clearInfo);
+
+    // Persist system message as user types
+    els.systemMsg.addEventListener('input', saveSystemMsg);
+
+    // Paste handler for prompt (collect images)
+    els.prompt.addEventListener('paste', async (e) => {
+      try {
+        const items = e.clipboardData?.items || [];
+        const imageItems = [...items].filter(it => it.kind === 'file' && it.type.startsWith('image/'));
+        if (imageItems.length === 0) return;
+        e.preventDefault();
+
+        for (const it of imageItems) {
+          if (state.images.length >= state.maxImages) {
+            setStatus(`Max ${state.maxImages} images reached.`);
+            break;
+          }
+          const file = it.getAsFile();
+          if (!file) continue;
+          if (file.size > state.maxBytes) {
+            setStatus(`Skipped image (${(file.size/1024/1024).toFixed(2)}MB): exceeds 32MB limit.`);
+            continue;
+          }
+          const dataUrl = await readAsDataURL(file);
+          const base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
+          const name = file.name || `pasted-${Date.now()}`;
+          state.images.push({ mime: file.type || 'image/png', base64, name, size: file.size, dataUrl });
+        }
+        renderThumbs();
+      } catch (err) {
+        showError(err?.message || String(err));
+      }
+    });
+
+    function renderThumbs() {
+      els.thumbs.innerHTML = '';
+      state.images.forEach((img, idx) => {
+        const node = els.thumbTpl.content.firstElementChild.cloneNode(true);
+        const imgEl = $('img', node);
+        imgEl.src = img.dataUrl;
+        imgEl.alt = img.name || 'Pasted image';
+        $('div:last-child', node).textContent = `${img.mime} • ${(img.size/1024).toFixed(0)} KB`;
+        $('button', node).addEventListener('click', () => {
+          state.images.splice(idx, 1);
+          renderThumbs();
+        });
+        els.thumbs.appendChild(node);
+      });
+    }
+
+    // Build request parts (Google)
+    function buildGoogleRequest(prompt) {
+      const parts = [{ text: prompt }];
+      for (const img of state.images) {
+        parts.push({
+          inlineData: {
+            mimeType: img.mime,
+            data: img.base64
+          }
+        });
+      }
+
+      const sysText = (els.systemMsg.value || '').trim();
+
+      const body = {
+        contents: [{ role: 'user', parts }]
+      };
+
+      // Include system_instruction when provided
+      if (sysText) {
+        body.system_instruction = {
+          parts: [{ text: sysText }]
+        };
+      }
+
+      return {
+        url: PROVIDERS.google.url(PROVIDERS.google.model),
+        headers: PROVIDERS.google.headers(els.apiKey.value.trim()),
+        body: JSON.stringify(body)
+      };
+    }
+
+    // Build request (OpenRouter) - with system message at first of messages
+    function buildOpenRouterRequest(prompt) {
+      // OpenAI-compatible content array with text + image_url items
+      const content = [];
+      content.push({ type: 'text', text: prompt });
+      for (const img of state.images) {
+        content.push({
+          type: 'image_url',
+          image_url: { url: img.dataUrl } // data URL (base64) for input image
+        });
+      }
+
+      const sysText = (els.systemMsg.value || '').trim();
+
+      const messages = [];
+      if (sysText) {
+        messages.push({ role: 'system', content: sysText });
+      }
+      messages.push({ role: 'user', content });
+
+      const payload = {
+        model: PROVIDERS.openrouter.model,
+        messages,
+        modalities: ['image', 'text'],
+        // Provider preferences as requested
+        provider: { ignore: ['google-ai-studio'] }
+      };
+      return {
+        url: PROVIDERS.openrouter.url(),
+        headers: PROVIDERS.openrouter.headers(els.apiKey.value.trim()),
+        body: JSON.stringify(payload)
+      };
+    }
+
+    els.generateBtn.addEventListener('click', async () => {
+      // Clear previous output immediately
+      els.results.innerHTML = '';
+
+      clearError();
+      clearInfo();
+      setStatus('');
+      showSpinner(true);
+      els.generateBtn.disabled = true;
+
+      try {
+        const apiKey = els.apiKey.value.trim();
+        if (!apiKey) throw new Error('Please enter your API key for the selected endpoint.');
+        saveApiKey();
+
+        const prompt = els.prompt.value.trim();
+        if (!prompt) throw new Error('Please enter a prompt.');
+
+        const provider = state.provider;
+        const p = PROVIDERS[provider];
+
+        const req = p.buildRequest(prompt);
+        const res = await fetch(req.url, {
+          method: 'POST',
+          headers: req.headers,
+          body: req.body
+        });
+
+        const raw = await res.text();
+        let data;
+        try { data = JSON.parse(raw); } catch { data = null; }
+
+        if (!res.ok) {
+          showError(data || raw);
+          setStatus('Request failed.');
+          return;
+        }
+
+        // Provider-specific finish checks BEFORE parsing/rendering
+        if (provider === 'openrouter') {
+          const choices = Array.isArray(data?.choices) ? data.choices : [];
+          const reasons = choices.map(ch => String(ch?.native_finish_reason || '').toLowerCase()).filter(Boolean);
+          // If any reason exists and isn't "stop", raise error and show full JSON
+          if (reasons.length && reasons.some(r => r !== 'stop')) {
+            showError(data);
+            setStatus('OpenRouter did not finish with "stop".');
+            return;
+          }
+        }
+
+        const structured = p.parseResponse(data);
+
+        // Google: when no output is generated, treat as blocked and raise error with full JSON
+        if (structured.items.length === 0) {
+          if (provider === 'google') {
+            showError(data);
+            setStatus('No output generated (likely blocked).');
+            return;
+          } else {
+            // Non-Google: keep previous behavior (optional)
+            els.results.innerHTML = '<div class="text-sm text-gray-400">No image or text parts returned.</div>';
+            const info = p.info(data);
+            if (Object.keys(info).length) showInfo(info);
+            setStatus('No output parts returned.');
+            return;
+          }
+        }
+
+        renderResults(structured.items);
+
+        const info = p.info(data);
+        if (Object.keys(info).length) showInfo(info);
+
+        const counts = structured.items.reduce((acc, it) => {
+          acc[it.kind] = (acc[it.kind] || 0) + 1;
+          return acc;
+        }, {});
+        setStatus(`Generated ${counts.image || 0} image(s) and ${counts.text || 0} text part(s).`);
+      } catch (err) {
+        showError(err?.message || String(err));
+        setStatus('Error occurred.');
+      } finally {
+        showSpinner(false);
+        els.generateBtn.disabled = false;
+      }
+    });
+
+    // Parse Google response
+    function parseGoogleResponse(data) {
+      const items = [];
+      const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+      for (const cand of candidates) {
+        const parts = Array.isArray(cand?.content?.parts) ? cand.content.parts : [];
+        for (const p of parts) {
+          if (typeof p?.text === 'string') {
+            const t = p.text.trim();
+            if (t && t !== '`') items.push({ kind: 'text', text: t });
+          }
+          if (p?.inlineData?.data && (p?.inlineData?.mimeType || '').startsWith('image/')) {
+            items.push({ kind: 'image', mime: p.inlineData.mimeType, base64: p.inlineData.data });
+          }
+          if (p?.inline_data?.data && (p?.inline_data?.mime_type || '').startsWith('image/')) {
+            items.push({ kind: 'image', mime: p.inline_data.mime_type, base64: p.inline_data.data });
+          }
+        }
+      }
+      return { items };
+    }
+
+    // Parse OpenRouter response
+    function parseOpenRouterResponse(data) {
+      const items = [];
+      const choices = Array.isArray(data?.choices) ? data.choices : [];
+      for (const ch of choices) {
+        const msg = ch?.message || {};
+        // Text content
+        if (typeof msg.content === 'string') {
+          const t = msg.content.trim();
+          if (t) items.push({ kind: 'text', text: t });
+        }
+        // Images array (data URLs)
+        const images = Array.isArray(msg?.images) ? msg.images : [];
+        for (const im of images) {
+          const url = im?.image_url?.url || im?.url || '';
+          if (typeof url === 'string' && url.startsWith('data:image')) {
+            const parsed = parseDataUrl(url);
+            if (parsed.base64) items.push({ kind: 'image', mime: parsed.mime, base64: parsed.base64 });
+          }
+        }
+      }
+      return { items };
+    }
+
+    function parseDataUrl(dataUrl = '') {
+      const m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
+      return {
+        mime: m?.[1] || 'image/png',
+        base64: m?.[2] || ''
+      };
+    }
+
+    function extFromMime(mime = '') {
+      if (mime.includes('png')) return 'png';
+      if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+      if (mime.includes('webp')) return 'webp';
+      if (mime.includes('gif')) return 'gif';
+      if (mime.includes('bmp')) return 'bmp';
+      return 'img';
+    }
+
+    function renderResults(items) {
+      els.results.innerHTML = '';
+
+      for (const it of items) {
+        if (it.kind === 'image') {
+          try {
+            const mime = it.mime || 'image/png';
+            const dataUrl = `data:${mime};base64,${it.base64}`;
+            const node = els.resultImageTpl?.content?.firstElementChild?.cloneNode(true);
+            if (!node) throw new Error('Image template not found in DOM.');
+
+            const imgEl = node.querySelector('img');
+            if (imgEl) {
+              imgEl.src = dataUrl;
+              imgEl.alt = 'Generated image';
+            }
+
+            const mimeEl = node.querySelector('[data-role="mime"]');
+            if (mimeEl) mimeEl.textContent = mime;
+
+            // Download anchor
+            let a = node.querySelector('[data-role="download"]');
+            if (!a) {
+              const actions = node.querySelector('[data-role="actions"]') || document.createElement('div');
+              a = document.createElement('a');
+              a.setAttribute('data-role', 'download');
+              a.className = 'px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs';
+              a.textContent = 'Download';
+              actions.appendChild(a);
+              if (!node.contains(actions)) node.appendChild(actions);
+            }
+            a.href = dataUrl;
+            a.download = `gemini-image-${Date.now()}.${extFromMime(mime)}`;
+
+            // Copy button (copy actual image to clipboard; convert to PNG if needed)
+            let copyBtn = node.querySelector('[data-role="copy"]');
+            if (!copyBtn) {
+              const actions = node.querySelector('[data-role="actions"]') || document.createElement('div');
+              copyBtn = document.createElement('button');
+              copyBtn.setAttribute('data-role', 'copy');
+              copyBtn.className = 'px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs';
+              copyBtn.textContent = 'Copy image';
+              actions.appendChild(copyBtn);
+              if (!node.contains(actions)) node.appendChild(actions);
+            } else {
+              copyBtn.textContent = 'Copy image';
+            }
+            copyBtn.addEventListener('click', async () => {
+              try {
+                const msg = await copyImageToClipboard(dataUrl, mime);
+                setStatus(msg);
+              } catch (e) {
+                console.error(e);
+                setStatus('Failed to copy image to clipboard.');
+              }
+            });
+
+            els.results.appendChild(node);
+          } catch (e) {
+            showError(e?.message || String(e));
+          }
+        } else if (it.kind === 'text') {
+          const txt = (it.text || '').trim();
+          if (!txt || txt === '`') continue;
+
+          const node = els.resultTextTpl?.content?.firstElementChild?.cloneNode(true);
+          if (!node) {
+            showError('Text template not found in DOM.');
+            continue;
+          }
+          const pre = node.querySelector('[data-role="text"]');
+          if (pre) pre.textContent = txt;
+          const copyBtn = node.querySelector('[data-role="copy-text"]');
+          if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+              try {
+                await navigator.clipboard.writeText(txt);
+                setStatus('Copied text to clipboard.');
+              } catch {
+                setStatus('Failed to copy text.');
+              }
+            });
+          }
+          els.results.appendChild(node);
+        }
+      }
+
+      if (items.length === 0) {
+        const div = document.createElement('div');
+        div.className = 'text-sm text-gray-400';
+        div.textContent = 'No results to display.';
+        els.results.appendChild(div);
+      }
+    }
+
+    // Utilities
+    function readAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => reject(fr.error || new Error('Failed to read file.'));
+        fr.readAsDataURL(file);
+      });
+    }
+
+    // Clipboard image helpers (copy actual image; convert to PNG for incompatible formats)
+    async function copyImageToClipboard(dataUrl, mime = 'image/png') {
+      if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
+        throw new Error('Image clipboard not supported in this browser.');
+      }
+
+      // Try direct PNG write when already PNG; otherwise convert to PNG
+      const wantPng = !/image\/png/i.test(mime);
+      try {
+        let pngBlob;
+        if (!wantPng && /image\/png/i.test(mime)) {
+          // Data URL is PNG already; use it directly
+          pngBlob = dataUrlToBlob(dataUrl);
+          if (!/image\/png/i.test(pngBlob.type)) {
+            // Edge case: ensure PNG, otherwise convert via canvas
+            const img = await loadImageFromDataUrl(dataUrl);
+            pngBlob = await imageToPngBlob(img);
+          }
+        } else {
+          // Convert to PNG via canvas for non-PNG formats (e.g., webp, gif, jpg)
+          const img = await loadImageFromDataUrl(dataUrl);
+          pngBlob = await imageToPngBlob(img);
+        }
+
+        const item = new ClipboardItem({ 'image/png': pngBlob });
+        await navigator.clipboard.write([item]);
+        return 'Copied image to clipboard (PNG).';
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    function dataUrlToBlob(dataUrl) {
+      const m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
+      if (!m) throw new Error('Invalid data URL.');
+      const mime = m[1];
+      const b64 = m[2];
+      const binStr = atob(b64);
+      const len = binStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    }
+
+    function loadImageFromDataUrl(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to load image for clipboard.'));
+        img.src = dataUrl;
+      });
+    }
+
+    function imageToPngBlob(img) {
+      return new Promise((resolve, reject) => {
+        try {
+          const canvas = document.createElement('canvas');
+          const w = img.naturalWidth || img.width;
+          const h = img.naturalHeight || img.height;
+          if (!w || !h) return reject(new Error('Invalid image dimensions.'));
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Failed to encode PNG for clipboard.'));
+          }, 'image/png');
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    // Clear buttons
+    els.clearImages.addEventListener('click', () => {
+      state.images = [];
+      renderThumbs();
+      setStatus('Images cleared.');
+    });
+    els.clearResults.addEventListener('click', () => { els.results.innerHTML = ''; setStatus('Results cleared.'); });
+
+    // Endpoint selector
+    els.endpoint.addEventListener('change', () => {
+      state.provider = els.endpoint.value;
+      applyProviderUI();
+    });
+
+    // API key UI
+    els.toggleKey.addEventListener('click', () => {
+      els.apiKey.type = els.apiKey.type === 'password' ? 'text' : 'password';
+      els.toggleKey.textContent = els.apiKey.type === 'password' ? 'Show' : 'Hide';
+    });
+    els.clearKey.addEventListener('click', () => { clearApiKey(); setStatus('API key cleared for current provider.'); });
+    els.apiKey.addEventListener('input', saveApiKey);
+
+    // Example
+    els.exampleBtn.addEventListener('click', () => {
+      els.prompt.value = 'Create a picture of a nano banana dish in a fancy restaurant with a Gemini theme. Include a short caption describing the scene.';
+      setStatus('Example prompt filled. Paste an image to condition if you like.');
+    });
+
+    // Init
+    loadProvider();
+    // Ensure system message is loaded on first render (in case provider load didn't set it yet)
+    els.systemMsg.value = loadSystemMsg();
+  </script>
+</body>
+</html>
