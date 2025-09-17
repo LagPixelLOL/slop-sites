@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AVIF Converter (Photon RS)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full bg-zinc-900 text-zinc-100">
+  <div class="min-h-full max-w-6xl mx-auto p-4 space-y-6">
+    <header class="flex items-center justify-between">
+      <h1 class="text-xl sm:text-2xl font-semibold text-zinc-100">
+        AVIF Converter (photon_rs)
+      </h1>
+      <div class="text-xs text-zinc-400">Paste with Ctrl/⌘+V or choose a file</div>
+    </header>
+
+    <section class="grid lg:grid-cols-2 gap-4">
+      <div class="space-y-4">
+        <div id="dropZone" class="relative border-2 border-dashed border-zinc-700 rounded-lg p-4 flex items-center justify-center text-center hover:border-zinc-600 transition cursor-pointer bg-zinc-800/50">
+          <div class="space-y-2">
+            <div class="text-sm text-zinc-300">Click to choose an image or paste it (Ctrl/⌘+V)</div>
+            <div class="text-xs text-zinc-500">PNG, JPEG, WebP, etc.</div>
+          </div>
+          <input id="fileInput" type="file" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" />
+        </div>
+
+        <div class="bg-zinc-800/50 rounded-lg p-4 space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex flex-col">
+              <span class="text-sm text-zinc-300 mb-1">Speed (1-10)</span>
+              <input id="speedInput" type="number" min="1" max="10" step="1" value="6"
+                     class="px-3 py-2 rounded bg-zinc-900 border border-zinc-700 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-600" />
+            </label>
+            <label class="flex flex-col">
+              <span class="text-sm text-zinc-300 mb-1">Quality (1-100)</span>
+              <input id="qualityInput" type="number" min="1" max="100" step="1" value="75"
+                     class="px-3 py-2 rounded bg-zinc-900 border border-zinc-700 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-600" />
+            </label>
+          </div>
+
+          <div class="flex items-center gap-3 pt-1">
+            <button id="convertBtn"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded bg-zinc-100 text-zinc-900 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition">
+              <span id="convertSpinner" class="hidden w-4 h-4 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin"></span>
+              <span>Convert to AVIF</span>
+            </button>
+            <button id="clearBtn"
+                    class="px-4 py-2 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 hover:bg-zinc-800/80 transition">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-zinc-800/50 rounded-lg p-4 space-y-2">
+          <div class="text-sm text-zinc-300">Stats</div>
+          <div class="text-sm text-zinc-400 space-y-1">
+            <div>Original size: <span id="origSize">-</span></div>
+            <div>AVIF size: <span id="avifSize">-</span></div>
+            <div>Time: <span id="convTime">-</span></div>
+          </div>
+          <div id="downloadRow" class="pt-2 hidden">
+            <a id="downloadLink" class="inline-block px-3 py-2 rounded bg-zinc-700 text-zinc-100 hover:bg-zinc-600 transition"
+               href="#" download="image.avif">Download AVIF</a>
+          </div>
+        </div>
+
+        <div class="bg-zinc-800/50 rounded-lg p-4">
+          <label class="block text-sm text-zinc-300 mb-2">Log</label>
+          <textarea id="logBox" class="w-full h-32 p-2 rounded bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs font-mono resize-y"
+                    readonly></textarea>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="bg-zinc-800/50 rounded-lg p-3 flex flex-col min-h-[240px]">
+            <div class="text-sm text-zinc-300 mb-2">Original</div>
+            <div class="flex-1 overflow-auto rounded border border-zinc-700 bg-zinc-900">
+              <canvas id="canvas" class="block max-w-full h-auto"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-zinc-800/50 rounded-lg p-3 flex flex-col min-h-[240px]">
+            <div class="text-sm text-zinc-300 mb-2">Converted AVIF</div>
+            <div class="flex-1 overflow-auto rounded border border-zinc-700 bg-zinc-900 flex items-center justify-center">
+              <img id="avifImg" alt="Converted AVIF preview" class="max-w-full max-h-[70vh] object-contain" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    // Requirement: import photon_rs.js in the script.
+    // The heavy work will be done inside a Web Worker, but we still import here to satisfy the requirement.
+    import './photon_rs.js';
+
+    // DOM elements
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const avifImg = document.getElementById('avifImg');
+
+    const speedInput = document.getElementById('speedInput');
+    const qualityInput = document.getElementById('qualityInput');
+    const convertBtn = document.getElementById('convertBtn');
+    const convertSpinner = document.getElementById('convertSpinner');
+    const clearBtn = document.getElementById('clearBtn');
+
+    const origSizeEl = document.getElementById('origSize');
+    const avifSizeEl = document.getElementById('avifSize');
+    const convTimeEl = document.getElementById('convTime');
+
+    const downloadRow = document.getElementById('downloadRow');
+    const downloadLink = document.getElementById('downloadLink');
+
+    const logBox = document.getElementById('logBox');
+
+    // State
+    let currentBlob = null;
+    let currentName = null;
+    let avifObjectUrl = null;
+    let worker = null;
+    let workerReady = false;
+    let jobIdCounter = 0;
+    let activeJobId = 0;
+
+    // Utilities
+    function log(msg, isError = false) {
+      const ts = new Date().toLocaleTimeString();
+      logBox.value += `[${ts}] ${isError ? 'ERROR: ' : ''}${msg}\n`;
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return '-';
+      const thresh = 1024;
+      if (Math.abs(bytes) < thresh) return bytes + ' B';
+      const units = ['KiB', 'MiB', 'GiB', 'TiB'];
+      let u = -1;
+      do {
+        bytes /= thresh;
+        ++u;
+      } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+      return `${bytes.toFixed(2)} ${units[u]}`;
+    }
+
+    function clamp(n, min, max) {
+      return Math.min(Math.max(n, min), max);
+    }
+
+    function setConverting(isConverting) {
+      convertBtn.disabled = isConverting || !currentBlob || !workerReady;
+      convertSpinner.classList.toggle('hidden', !isConverting);
+    }
+
+    function resetResults() {
+      origSizeEl.textContent = currentBlob ? formatBytes(currentBlob.size) : '-';
+      avifSizeEl.textContent = '-';
+      convTimeEl.textContent = '-';
+      avifImg.removeAttribute('src');
+      if (avifObjectUrl) {
+        URL.revokeObjectURL(avifObjectUrl);
+        avifObjectUrl = null;
+      }
+      downloadRow.classList.add('hidden');
+      downloadLink.removeAttribute('href');
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function blobToCanvas(blob) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            resolve();
+          } catch (err) {
+            URL.revokeObjectURL(url);
+            reject(err);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Failed to load image into canvas.'));
+        };
+        img.src = url;
+      });
+    }
+
+    async function loadImageBlob(blob, name = 'image') {
+      if (!blob) return;
+      try {
+        currentBlob = blob;
+        currentName = name.replace(/\.[^/.]+$/, '') || 'image';
+        await blobToCanvas(blob);
+        resetResults();
+        setConverting(false);
+        log(`Loaded image: ${currentName} (${formatBytes(blob.size)})`);
+      } catch (e) {
+        log(`Unable to load image: ${e?.message || e}`, true);
+      }
+    }
+
+    // Worker setup
+    function initWorker() {
+      if (worker) return;
+      const photonUrl = new URL('./photon_rs.js', window.location.href).href;
+
+      const workerCode = `
+        let photon;
+        let ready = false;
+
+        async function init(photonUrl) {
+          try {
+            photon = await import(photonUrl);
+            if (typeof photon.default === 'function') {
+              await photon.default();
+            }
+            ready = true;
+            self.postMessage({ type: 'ready' });
+          } catch (e) {
+            self.postMessage({ type: 'error', message: 'Worker init failed: ' + (e?.message || e) });
+          }
+        }
+
+        self.onmessage = async (e) => {
+          const data = e.data;
+          if (!data) return;
+
+          if (data.type === 'init') {
+            return init(data.photonUrl);
+          }
+
+          if (data.type === 'encodeFromBlob') {
+            if (!ready) {
+              return self.postMessage({ type: 'error', jobId: data.jobId, message: 'Worker is not ready yet.' });
+            }
+            try {
+              if (typeof OffscreenCanvas === 'undefined') {
+                throw new Error('OffscreenCanvas is not supported in this browser.');
+              }
+              const { blob, speed, quality, jobId } = data;
+              const t0 = performance.now();
+
+              const bitmap = await createImageBitmap(blob);
+              const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+              const ctx = canvas.getContext('2d', { willReadFrequently: true });
+              ctx.drawImage(bitmap, 0, 0);
+              if (bitmap.close) bitmap.close();
+
+              let photonImage;
+              try {
+                photonImage = photon.open_image(canvas, ctx);
+              } catch (err) {
+                throw new Error('open_image failed: ' + (err?.message || err));
+              }
+
+              let bytes;
+              try {
+                const raw = photonImage.get_bytes_avif(speed, quality);
+                // Copy to decouple from WASM memory so it can be transferred safely.
+                bytes = new Uint8Array(raw);
+              } catch (err) {
+                throw new Error('get_bytes_avif failed: ' + (err?.message || err));
+              }
+
+              const t1 = performance.now();
+              self.postMessage({
+                type: 'result',
+                jobId,
+                buffer: bytes.buffer,
+                width: canvas.width,
+                height: canvas.height,
+                timeMs: t1 - t0
+              }, [bytes.buffer]);
+            } catch (err) {
+              self.postMessage({ type: 'error', jobId: data.jobId, message: err?.message || String(err) });
+            }
+          }
+        };
+      `;
+
+      const blob = new Blob([workerCode], { type: 'text/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      worker = new Worker(workerUrl, { type: 'module' });
+
+      worker.addEventListener('message', async (e) => {
+        const msg = e.data || {};
+        if (msg.type === 'ready') {
+          workerReady = true;
+          setConverting(false);
+          log('Worker initialized (Photon RS ready).');
+          return;
+        }
+        if (msg.type === 'error') {
+          if (msg.jobId && msg.jobId !== activeJobId) return; // stale
+          log(msg.message || 'Worker error', true);
+          setConverting(false);
+          return;
+        }
+        if (msg.type === 'result') {
+          if (msg.jobId !== activeJobId) return; // stale result, ignore
+          try {
+            const avifBlob = new Blob([msg.buffer], { type: 'image/avif' });
+
+            // Download URL
+            if (avifObjectUrl) URL.revokeObjectURL(avifObjectUrl);
+            avifObjectUrl = URL.createObjectURL(avifBlob);
+            downloadLink.href = avifObjectUrl;
+            downloadLink.download = `${currentName || 'image'}.avif`;
+            downloadRow.classList.remove('hidden');
+
+            // Data URL preview in <img>
+            try {
+              const dataUrl = await blobToDataURL(avifBlob);
+              avifImg.src = dataUrl;
+            } catch (err) {
+              log('Failed to create data URL preview: ' + (err?.message || err), true);
+              avifImg.removeAttribute('src');
+            }
+
+            // Stats
+            origSizeEl.textContent = currentBlob ? formatBytes(currentBlob.size) : '-';
+            avifSizeEl.textContent = formatBytes(avifBlob.size);
+            convTimeEl.textContent = `${msg.timeMs.toFixed(1)} ms`;
+
+            log(`Converted to AVIF in ${msg.timeMs.toFixed(1)} ms (speed=${speedInput.value}, quality=${qualityInput.value}). Output: ${formatBytes(avifBlob.size)}.`);
+          } catch (err) {
+            log('Failed to handle worker result: ' + (err?.message || err), true);
+          } finally {
+            setConverting(false);
+          }
+        }
+      });
+
+      worker.addEventListener('error', (e) => {
+        log('Worker runtime error: ' + (e?.message || e), true);
+        setConverting(false);
+      });
+
+      // Kick off init
+      worker.postMessage({ type: 'init', photonUrl });
+    }
+
+    // Handlers
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      await loadImageBlob(file, file.name);
+      // reset file input to allow selecting the same file again
+      fileInput.value = '';
+    });
+
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-zinc-500');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-zinc-500');
+    });
+    dropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-zinc-500');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        await loadImageBlob(file, file.name);
+      }
+    });
+
+    window.addEventListener('paste', async (e) => {
+      try {
+        const items = e.clipboardData?.items || [];
+        for (const item of items) {
+          if (item.type && item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              await loadImageBlob(file, 'pasted_image');
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        log(`Paste failed: ${err?.message || err}`, true);
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      try {
+        currentBlob = null;
+        currentName = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = 0;
+        canvas.height = 0;
+        avifImg.removeAttribute('src');
+        resetResults();
+        setConverting(false);
+        log('Cleared.');
+      } catch (e) {
+        log(`Clear failed: ${e?.message || e}`, true);
+      }
+    });
+
+    convertBtn.addEventListener('click', async () => {
+      if (!currentBlob) {
+        log('No image loaded. Please choose a file or paste an image.', true);
+        return;
+      }
+      if (!worker) initWorker();
+      if (!workerReady) {
+        log('Worker not ready yet. Please wait a moment...', true);
+        return;
+      }
+
+      let speed = parseInt(speedInput.value, 10);
+      let quality = parseInt(qualityInput.value, 10);
+      speed = clamp(Number.isFinite(speed) ? speed : 6, 1, 10);
+      quality = clamp(Number.isFinite(quality) ? quality : 75, 1, 100);
+      speedInput.value = String(speed);
+      qualityInput.value = String(quality);
+
+      setConverting(true);
+      // Keep original size visible; clear previous output stats
+      avifSizeEl.textContent = '-';
+      convTimeEl.textContent = '-';
+      if (avifObjectUrl) {
+        URL.revokeObjectURL(avifObjectUrl);
+        avifObjectUrl = null;
+      }
+      downloadRow.classList.add('hidden');
+      avifImg.removeAttribute('src');
+
+      try {
+        // Assign a job id to match responses
+        activeJobId = ++jobIdCounter;
+        worker.postMessage({
+          type: 'encodeFromBlob',
+          jobId: activeJobId,
+          blob: currentBlob,
+          speed,
+          quality
+        });
+        log(`Started conversion (speed=${speed}, quality=${quality})...`);
+      } catch (e) {
+        setConverting(false);
+        log(`Failed to start conversion: ${e?.message || e}`, true);
+      }
+    });
+
+    // Disable convert until an image is loaded and worker is ready
+    convertBtn.disabled = true;
+
+    // Initialize worker early to avoid first-use latency
+    initWorker();
+  </script>
+</body>
+</html>
