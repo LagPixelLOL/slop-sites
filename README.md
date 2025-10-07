@@ -5,5 +5,6 @@ My slop vibe coded websites. \
 
 ## Other Slops
 [Animated QR Code Maker](https://lagpixellol.github.io/slop-sites/qrcode) \
-[Gemini Image Generation](https://lagpixellol.github.io/slop-sites/imagen) \
-[AVIF Converter](https://lagpixellol.github.io/slop-sites/avifer)
+[Gemini Image Generator](https://lagpixellol.github.io/slop-sites/imagen) \
+[AVIF Converter](https://lagpixellol.github.io/slop-sites/avifer) \
+[Sora Video Generator](https://lagpixellol.github.io/slop-sites/sora)

@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenAI Sora API</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    /* Prevent textarea resize handle */
+    textarea#prompt { resize: none; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/40">
+    <div class="mx-auto max-w-5xl px-4 py-4">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="text-xl font-semibold text-zinc-100">OpenAI Sora API</h1>
+        <div class="text-xs text-zinc-400">Zinc color scheme - Tailwind CSS</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-6">
+    <!-- API Key Card -->
+    <section class="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+      <div class="mb-3">
+        <h2 class="text-lg font-semibold text-zinc-100">API Key</h2>
+        <p class="text-sm text-zinc-400">
+          Your key is stored in your browser localStorage and used only for requests from this page. It auto-saves as you type.
+        </p>
+      </div>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="flex-1">
+          <label for="apiKey" class="mb-1 block text-sm text-zinc-300">OpenAI API Key</label>
+          <div class="flex gap-2">
+            <input
+              id="apiKey"
+              type="password"
+              placeholder="sk-..."
+              class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+              autocomplete="off"
+            />
+            <button id="toggleKeyVisibility" class="h-10 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm hover:bg-zinc-700">
+              Show
+            </button>
+            <button id="clearKeyBtn" class="h-10 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm hover:bg-zinc-700">
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Create Video Form -->
+    <section class="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-zinc-100">Create Video</h2>
+        <div class="text-xs text-zinc-400">POST /videos</div>
+      </div>
+
+      <form id="createForm" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label for="model" class="mb-1 block text-sm text-zinc-300">Model</label>
+          <select
+            id="model"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 focus:border-zinc-500 focus:outline-none"
+          >
+            <option value="sora-2">sora-2</option>
+            <option value="sora-2-pro">sora-2-pro</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="size" class="mb-1 block text-sm text-zinc-300">Size</label>
+          <select
+            id="size"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 focus:border-zinc-500 focus:outline-none"
+          >
+            <!-- options injected dynamically based on model -->
+          </select>
+        </div>
+
+        <div>
+          <label for="seconds" class="mb-1 block text-sm text-zinc-300">Duration (seconds)</label>
+          <select
+            id="seconds"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 focus:border-zinc-500 focus:outline-none"
+          >
+            <option value="4">4</option>
+            <option value="8">8</option>
+            <option value="12" selected>12</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-2">
+          <label for="prompt" class="mb-1 block text-sm text-zinc-300">Prompt</label>
+          <textarea
+            id="prompt"
+            class="h-28 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+            placeholder="Describe the video to generate. Example: A calico cat playing a piano on stage"
+            required
+          ></textarea>
+        </div>
+
+        <!-- Reference image input -->
+        <div class="md:col-span-2">
+          <label class="mb-2 block text-sm text-zinc-300">Reference image (optional)</label>
+          <div id="refDrop"
+               class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 bg-zinc-900 px-4 py-6 text-center hover:border-zinc-500">
+            <div class="text-sm text-zinc-300">Click to choose or paste (Ctrl+V) an image here</div>
+            <div class="text-xs text-zinc-500">
+              JPEG, PNG, WEBP. Will be padded to the selected size and uploaded as PNG.
+            </div>
+            <input id="refFile" type="file" accept="image/*" class="hidden" />
+          </div>
+
+          <!-- Processed preview (smaller) -->
+          <div id="refPreviewWrap" class="mt-4 hidden rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+            <div class="mb-2 flex items-center justify-between">
+              <div class="text-sm text-zinc-300">Processed reference preview</div>
+              <button id="clearRefBtn" type="button" class="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs hover:bg-zinc-800">
+                Remove
+              </button>
+            </div>
+            <!-- Bounded preview box to keep it small -->
+            <div id="refCanvasBox" class="mx-auto flex h-64 w-full items-center justify-center overflow-hidden rounded border border-zinc-800 bg-black md:h-72">
+              <img id="refPreviewImg" alt="Reference preview" class="max-h-full max-w-full object-contain" />
+            </div>
+            <div id="refMeta" class="mt-2 text-xs text-zinc-400">
+              Target: N/A - Original: N/A
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-2 flex items-center gap-3">
+          <button
+            id="createBtn"
+            type="submit"
+            class="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span class="relative inline-flex h-4 w-4 items-center justify-center">
+              <!-- outer circle shown always -->
+              <svg id="spinnerOuter" class="h-4 w-4 text-zinc-300" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" class="opacity-50"></circle>
+              </svg>
+              <!-- inner circle only when generating -->
+              <svg id="spinnerInner" class="absolute inset-0 hidden h-4 w-4 text-zinc-100" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+              </svg>
+            </span>
+            <span>Generate</span>
+          </button>
+
+          <button
+            id="cancelBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled
+          >
+            Cancel Job
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Status + Output -->
+    <section class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <!-- Status panel -->
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-zinc-100">Job Status</h3>
+          <div class="text-xs text-zinc-400">GET /videos/{id}</div>
+        </div>
+
+        <dl class="grid grid-cols-3 gap-3 text-sm">
+          <div class="col-span-3">
+            <dt class="text-zinc-400">Video ID</dt>
+            <dd id="statusId" class="truncate font-mono text-zinc-200">N/A</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">Status</dt>
+            <dd id="statusText" class="font-medium text-zinc-200">N/A</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">Progress</dt>
+            <dd class="text-zinc-200">
+              <span id="statusProgress">N/A</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">Created</dt>
+            <dd id="statusCreated" class="text-zinc-200">N/A</dd>
+          </div>
+        </dl>
+
+        <div class="mt-4 h-2 w-full overflow-hidden rounded bg-zinc-800">
+          <div id="progressBar" class="h-2 w-0 rounded bg-zinc-300 transition-all" style="width: 0%"></div>
+        </div>
+
+        <div class="mt-4">
+          <details class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+            <summary class="cursor-pointer text-sm text-zinc-300">Last job JSON</summary>
+            <pre id="lastJobJson" class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-zinc-950 p-3 text-xs text-zinc-200">-</pre>
+          </details>
+        </div>
+      </div>
+
+      <!-- Output panel -->
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-zinc-100">Output</h3>
+          <div class="text-xs text-zinc-400">/videos/{id}/content</div>
+        </div>
+
+        <!-- Error box -->
+        <div id="errorBox" class="mb-4 hidden rounded-lg border border-red-900/50 bg-red-950/40 p-3">
+          <div class="mb-2 font-medium text-red-200" id="errorTitle">Error</div>
+          <div class="text-sm text-red-200/90" id="errorMessage"></div>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-sm text-red-300">Raw error payload</summary>
+            <pre id="errorRaw" class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-zinc-950 p-3 text-xs text-red-200"></pre>
+          </details>
+        </div>
+
+        <!-- Preview -->
+        <div id="previewWrap" class="mb-4 hidden">
+          <div class="mb-2 text-sm text-zinc-300">Thumbnail (when available)</div>
+          <img id="previewImg" alt="Preview image" class="w-full rounded-lg border border-zinc-800 bg-zinc-950 object-contain" />
+        </div>
+
+        <!-- Video -->
+        <div id="videoWrap" class="hidden">
+          <video id="resultVideo" class="w-full rounded-lg border border-zinc-800 bg-black" controls preload="metadata" playsinline></video>
+          <div class="mt-3 flex items-center gap-2">
+            <a id="downloadLink" class="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700" download="video.mp4">Download MP4</a>
+            <button id="resetBtn" class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800">Reset</button>
+          </div>
+        </div>
+
+        <div id="waitingMsg" class="text-sm text-zinc-400">No video yet. Create one to begin.</div>
+      </div>
+    </section>
+
+    <!-- Footer note -->
+    <p class="mt-6 text-center text-xs text-zinc-500">
+      This page polls the job until it completes, then downloads the MP4 asset as a data URL and deletes it from the server. For in-progress jobs, it tries to show a thumbnail when available.
+    </p>
+  </main>
+
+  <script>
+    // -----------------------------
+    // Config and DOM refs
+    // -----------------------------
+    const API_BASE = "https://api.openai.com/v1";
+
+    const POLL_BASE_INTERVAL = 1000; // ideal spacing between polls, in milliseconds
+    const POLL_MIN_INTERVAL = 500;
+    const POLL_MAX_INTERVAL = 45000;
+    const POLL_PER_TICK_GROWTH = 750;
+    const POLL_TIMEOUT_MS = 10000;
+
+    const SIZE_MAP = {
+      "sora-2": {
+        Landscape: "1280x720",
+        Portrait: "720x1280",
+      },
+      "sora-2-pro": {
+        Landscape: "1792x1024",
+        Portrait: "1024x1792",
+      },
+    };
+
+    const els = {
+      // key
+      apiKey: document.getElementById("apiKey"),
+      toggleKeyVisibility: document.getElementById("toggleKeyVisibility"),
+      clearKeyBtn: document.getElementById("clearKeyBtn"),
+
+      // form
+      createForm: document.getElementById("createForm"),
+      createBtn: document.getElementById("createBtn"),
+      spinnerOuter: document.getElementById("spinnerOuter"),
+      spinnerInner: document.getElementById("spinnerInner"),
+      cancelBtn: document.getElementById("cancelBtn"),
+
+      // fields
+      model: document.getElementById("model"),
+      prompt: document.getElementById("prompt"),
+      size: document.getElementById("size"),
+      seconds: document.getElementById("seconds"),
+
+      // reference image
+      refDrop: document.getElementById("refDrop"),
+      refFile: document.getElementById("refFile"),
+      refPreviewWrap: document.getElementById("refPreviewWrap"),
+      refPreviewImg: document.getElementById("refPreviewImg"),
+      refCanvasBox: document.getElementById("refCanvasBox"),
+      refMeta: document.getElementById("refMeta"),
+      clearRefBtn: document.getElementById("clearRefBtn"),
+
+      // status
+      statusId: document.getElementById("statusId"),
+      statusText: document.getElementById("statusText"),
+      statusProgress: document.getElementById("statusProgress"),
+      statusCreated: document.getElementById("statusCreated"),
+      progressBar: document.getElementById("progressBar"),
+      lastJobJson: document.getElementById("lastJobJson"),
+
+      // output
+      errorBox: document.getElementById("errorBox"),
+      errorTitle: document.getElementById("errorTitle"),
+      errorMessage: document.getElementById("errorMessage"),
+      errorRaw: document.getElementById("errorRaw"),
+
+      previewWrap: document.getElementById("previewWrap"),
+      previewImg: document.getElementById("previewImg"),
+
+      videoWrap: document.getElementById("videoWrap"),
+      resultVideo: document.getElementById("resultVideo"),
+      downloadLink: document.getElementById("downloadLink"),
+      resetBtn: document.getElementById("resetBtn"),
+
+      waitingMsg: document.getElementById("waitingMsg"),
+    };
+
+    let pollState = null;
+    let currentJobId = null;
+    let lastStatus = null;
+    let previewFetched = false;
+    let videoDataUrl = null;
+
+    // reference image state
+    let refOriginalFile = null;      // File chosen or pasted
+    let refProcessedBlob = null;     // PNG blob padded to target size
+    let refPreviewUrl = null;        // object URL for preview
+
+    // -----------------------------
+    // Local Storage helpers (only API key)
+    // -----------------------------
+    const KEY_STORAGE = "openai_api_key";
+
+    function loadKey() {
+      const saved = localStorage.getItem(KEY_STORAGE);
+      if (saved) els.apiKey.value = saved;
+    }
+
+    function saveKeyAuto() {
+      const v = (els.apiKey.value || "").trim();
+      if (v) {
+        localStorage.setItem(KEY_STORAGE, v);
+      } else {
+        localStorage.removeItem(KEY_STORAGE);
+      }
+    }
+
+    function clearKey() {
+      localStorage.removeItem(KEY_STORAGE);
+      els.apiKey.value = "";
+      toast("API key cleared.");
+    }
+
+    // -----------------------------
+    // UI helpers
+    // -----------------------------
+    function toast(msg) {
+      const el = document.createElement("div");
+      el.textContent = msg;
+      el.className =
+        "fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-zinc-800 bg-zinc-900/90 px-3 py-2 text-sm text-zinc-100 shadow-lg";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1800);
+    }
+
+    function setLoading(isLoading) {
+      els.createBtn.disabled = isLoading;
+      els.cancelBtn.disabled = isLoading ? false : (currentJobId ? false : true);
+      // spinner behavior: outer circle always visible; inner circle only during loading
+      els.spinnerInner.classList.toggle("hidden", !isLoading);
+      els.spinnerInner.classList.toggle("animate-spin", isLoading);
+
+      // disable fields while generating
+      [els.model, els.prompt, els.size, els.seconds, els.refFile].forEach((f) => (f.disabled = isLoading));
+      els.refDrop.classList.toggle("opacity-60", isLoading);
+      els.refDrop.classList.toggle("pointer-events-none", isLoading);
+    }
+
+    function setStatus(job) {
+      if (!job) return;
+      els.statusId.textContent = job.id || "N/A";
+      els.statusText.textContent = job.status || "N/A";
+
+      if (typeof job.progress === "number") {
+        const clamped = Math.max(0, Math.min(100, job.progress));
+        els.statusProgress.textContent = clamped + "%";
+        els.progressBar.style.width = clamped + "%";
+      } else {
+        els.statusProgress.textContent = "N/A";
+        els.progressBar.style.width = "0%";
+      }
+
+      if (job.created_at) {
+        try {
+          const dt = new Date(job.created_at * 1000);
+          els.statusCreated.textContent = dt.toLocaleString();
+        } catch {
+          els.statusCreated.textContent = String(job.created_at);
+        }
+      } else {
+        els.statusCreated.textContent = "N/A";
+      }
+
+      els.lastJobJson.textContent = JSON.stringify(job, null, 2);
+    }
+
+    function clearOutput() {
+      // video
+      els.videoWrap.classList.add("hidden");
+      els.resultVideo.removeAttribute("src");
+      els.downloadLink.removeAttribute("href");
+      videoDataUrl = null;
+
+      // preview
+      els.previewWrap.classList.add("hidden");
+      els.previewImg.removeAttribute("src");
+
+      // waiting
+      els.waitingMsg.classList.remove("hidden");
+    }
+
+    function clearError() {
+      els.errorBox.classList.add("hidden");
+      els.errorTitle.textContent = "";
+      els.errorMessage.textContent = "";
+      els.errorRaw.textContent = "";
+    }
+
+    function showError(title, message, raw) {
+      els.errorBox.classList.remove("hidden");
+      els.errorTitle.textContent = title || "Error";
+      els.errorMessage.textContent = message || "";
+      els.errorRaw.textContent = raw || "";
+    }
+
+    function ensureApiKey() {
+      const key = (els.apiKey.value.trim() || localStorage.getItem(KEY_STORAGE) || "").trim();
+      if (!key) {
+        showError("Missing API key", "Please enter your OpenAI API key in the field above.");
+        return null;
+      }
+      return key;
+    }
+
+    function parseSizeStr(sizeStr) {
+      const m = /^(\d+)x(\d+)$/.exec(sizeStr || "");
+      if (!m) return null;
+      return { w: parseInt(m[1], 10), h: parseInt(m[2], 10) };
+    }
+
+    // -----------------------------
+    // Reference image processing
+    // -----------------------------
+    async function decodeImageFromFile(file) {
+      // Prefer createImageBitmap when available for performance
+      try {
+        if ("createImageBitmap" in window) {
+          const bmp = await createImageBitmap(file);
+          return { width: bmp.width, height: bmp.height, bitmap: bmp };
+        }
+      } catch {}
+      // Fallback to HTMLImageElement
+      const dataUrl = await fileToDataURL(file);
+      const img = await loadImage(dataUrl);
+      return { width: img.naturalWidth, height: img.naturalHeight, imageEl: img };
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = (e) => reject(e);
+        fr.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+        img.src = src;
+      });
+    }
+
+    async function processToPngPadded(file, targetW, targetH) {
+      const decoded = await decodeImageFromFile(file);
+      const srcW = decoded.width;
+      const srcH = decoded.height;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+
+      // Fill with black
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      // Contain-fit into target with black padding
+      const scale = Math.min(targetW / srcW, targetH / srcH);
+      const drawW = Math.round(srcW * scale);
+      const drawH = Math.round(srcH * scale);
+      const dx = Math.round((targetW - drawW) / 2);
+      const dy = Math.round((targetH - drawH) / 2);
+
+      if (decoded.bitmap) {
+        ctx.drawImage(decoded.bitmap, dx, dy, drawW, drawH);
+      } else {
+        ctx.drawImage(decoded.imageEl, dx, dy, drawW, drawH);
+      }
+
+      const blob = await new Promise((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/png")
+      );
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = (e) => reject(e);
+        r.readAsDataURL(blob);
+      });
+
+      return { blob, dataUrl, srcW, srcH, targetW, targetH };
+    }
+
+    async function handleReferenceFile(file) {
+      if (!file || !file.type.startsWith("image/")) {
+        showError("Invalid file", "Please choose an image file (PNG, JPEG, or WEBP).");
+        return;
+      }
+      const sizeStr = els.size.value;
+      const parsed = parseSizeStr(sizeStr);
+      if (!parsed) {
+        showError("Invalid size", "Please select a valid size before adding a reference image.");
+        return;
+      }
+      refOriginalFile = file;
+      await updateRefPreview();
+    }
+
+    async function updateRefPreview() {
+      if (!refOriginalFile) {
+        clearRefPreview();
+        return;
+      }
+      const sizeStr = els.size.value;
+      const parsed = parseSizeStr(sizeStr);
+      if (!parsed) return;
+
+      try {
+        const processed = await processToPngPadded(refOriginalFile, parsed.w, parsed.h);
+        // cleanup old preview URL
+        if (refPreviewUrl) URL.revokeObjectURL(refPreviewUrl);
+        refProcessedBlob = processed.blob;
+        refPreviewUrl = URL.createObjectURL(refProcessedBlob);
+        els.refPreviewImg.src = refPreviewUrl;
+        els.refPreviewWrap.classList.remove("hidden");
+        els.refMeta.textContent = "Target: " + processed.targetW + "x" + processed.targetH + " - Original: " + processed.srcW + "x" + processed.srcH;
+      } catch (e) {
+        showError("Reference processing failed", String(e));
+        clearRefPreview();
+      }
+    }
+
+    function clearRefPreview() {
+      els.refPreviewWrap.classList.add("hidden");
+      els.refPreviewImg.removeAttribute("src");
+      els.refMeta.textContent = "Target: N/A - Original: N/A";
+      if (refPreviewUrl) URL.revokeObjectURL(refPreviewUrl);
+      refPreviewUrl = null;
+      refProcessedBlob = null;
+      refOriginalFile = null;
+    }
+
+    // -----------------------------
+    // Networking helpers
+    // -----------------------------
+    async function handleMaybeApiError(resp) {
+      const status = resp.status;
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const data = await resp.json().catch(() => null);
+        const raw = data ? JSON.stringify(data, null, 2) : "(invalid JSON)";
+        const msg = (data && data.error && data.error.message) ? data.error.message : raw;
+        showError("API error (" + status + ")", msg, raw);
+      } else {
+        const text = await resp.text().catch(() => "");
+        showError("HTTP error (" + status + ")", text || "(no message)", text);
+      }
+    }
+
+    async function createVideo(key, payload, refBlob) {
+      const url = API_BASE + "/videos";
+      const fd = new FormData();
+      fd.append("model", payload.model);
+      fd.append("prompt", payload.prompt);
+      fd.append("size", payload.size);
+      fd.append("seconds", payload.seconds); // string per requirement
+      if (refBlob) {
+        const file = new File([refBlob], "input_reference.png", { type: "image/png" });
+        fd.append("input_reference", file);
+      }
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + key },
+        body: fd,
+      });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      const job = await resp.json();
+      return job;
+    }
+
+    async function getVideo(key, id, { signal } = {}) {
+      const url = API_BASE + "/videos/" + encodeURIComponent(id);
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: "Bearer " + key },
+        signal,
+      });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      const job = await resp.json();
+      return job;
+    }
+
+    async function deleteVideo(key, id) {
+      const url = API_BASE + "/videos/" + encodeURIComponent(id);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + key },
+      });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      const data = await resp.json();
+      return data;
+    }
+
+    async function getPreviewImage(key, id) {
+      // API expects variant=thumbnail for a preview image
+      const url = API_BASE + "/videos/" + encodeURIComponent(id) + "/content?variant=thumbnail";
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer " + key,
+          Accept: "image/*,application/json",
+        },
+      });
+      if (!resp.ok) {
+        // do not block on preview errors; just return null quietly
+        return null;
+      }
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.startsWith("image/")) {
+        const blob = await resp.blob();
+        return URL.createObjectURL(blob);
+      }
+      return null;
+    }
+
+    async function getVideoContentBlob(key, id) {
+      // API expects variant=video for the MP4
+      const url = API_BASE + "/videos/" + encodeURIComponent(id) + "/content?variant=video";
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer " + key,
+          Accept: "video/*,application/json",
+        },
+      });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.startsWith("video/")) {
+        const blob = await resp.blob();
+        return blob;
+      }
+      if (ct.includes("application/json")) {
+        const data = await resp.json().catch(() => null);
+        const raw = data ? JSON.stringify(data, null, 2) : "(invalid JSON)";
+        showError("API returned JSON instead of video", "See raw payload below.", raw);
+        return null;
+      }
+      // Unknown content
+      const blob = await resp.blob();
+      showError("Unexpected content type", "Received: " + ct, "(binary " + blob.size + " bytes)");
+      return null;
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    // -----------------------------
+    // Polling and flow
+    // -----------------------------
+    function stopPolling() {
+      if (!pollState) return;
+      const state = pollState;
+      if (state.nextTimerId) {
+        clearTimeout(state.nextTimerId);
+      }
+      if (state.abortController) {
+        try {
+          state.abortController.abort();
+        } catch {
+          // ignore
+        }
+      }
+      pollState = null;
+    }
+
+    function scheduleNextPoll() {
+      const state = pollState;
+      if (!state) return;
+
+      state.tick += 1;
+
+      const now = performance.now();
+      const target = state.startTime + state.tick * state.baseInterval;
+      let delay = target - now;
+      const growth = Math.min(state.tick * POLL_PER_TICK_GROWTH, POLL_MAX_INTERVAL - state.baseInterval);
+
+      if (delay < 0) {
+        const overshoot = Math.min(Math.abs(delay), state.baseInterval);
+        delay = state.baseInterval + overshoot + growth;
+      } else {
+        delay = delay + growth;
+      }
+
+      delay = Math.max(POLL_MIN_INTERVAL, Math.min(delay, POLL_MAX_INTERVAL));
+
+      state.nextTimerId = setTimeout(() => runPoll(false), delay);
+    }
+
+    async function runPoll(isInitial) {
+      const state = pollState;
+      if (!state) return;
+      if (state.inFlight) return;
+
+      if (isInitial || state.startTime === null) {
+        state.startTime = performance.now();
+        state.tick = 0;
+      }
+
+      state.inFlight = true;
+
+      const controller = new AbortController();
+      state.abortController = controller;
+
+      let timedOut = false;
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, state.timeoutPerRequest);
+
+      let job = null;
+      let error = null;
+
+      try {
+        job = await getVideo(state.key, state.id, { signal: controller.signal });
+      } catch (err) {
+        error = err;
+      } finally {
+        clearTimeout(timeoutHandle);
+        if (pollState === state) {
+          state.abortController = null;
+          state.inFlight = false;
+        }
+      }
+
+      if (pollState !== state) {
+        return;
+      }
+
+      if (timedOut) {
+        console.warn("Polling request timed out; retrying with adjusted delay.");
+        scheduleNextPoll();
+        return;
+      }
+
+      if (error) {
+        if (error.name === "AbortError") {
+          return;
+        }
+        showError("Network error", String(error));
+        stopPolling();
+        setLoading(false);
+        return;
+      }
+
+      if (!job) {
+        stopPolling();
+        setLoading(false);
+        return;
+      }
+
+      setStatus(job);
+
+      if (!previewFetched && (job.status === "queued" || job.status === "in_progress")) {
+        previewFetched = true;
+        const url = await getPreviewImage(state.key, state.id);
+        if (url) {
+          els.previewImg.src = url;
+          els.previewWrap.classList.remove("hidden");
+        }
+      }
+
+      if (job.status !== lastStatus) {
+        lastStatus = job.status;
+      }
+
+      if (job.status === "failed") {
+        currentJobId = null;
+        els.cancelBtn.disabled = true;
+        stopPolling();
+        setLoading(false);
+        showError("Video generation failed", "The job returned status 'failed'. Raw job JSON is shown in the Status panel.");
+        return;
+      }
+
+      if (job.status === "completed") {
+        els.cancelBtn.disabled = true;
+
+        const keyForFetch = state.key;
+        const idForFetch = state.id;
+        currentJobId = null;
+        stopPolling();
+
+        const blob = await getVideoContentBlob(keyForFetch, idForFetch);
+        if (blob) {
+          clearError();
+          els.waitingMsg.classList.add("hidden");
+          try {
+            const dataUrl = await blobToDataURL(blob);
+            videoDataUrl = dataUrl;
+            els.resultVideo.src = dataUrl; // no autoplay
+            els.downloadLink.href = dataUrl;
+            els.videoWrap.classList.remove("hidden");
+          } catch (e) {
+            showError("Failed to load video", String(e));
+          }
+
+          try {
+            const del = await deleteVideo(keyForFetch, idForFetch);
+            if (del && del.deleted) {
+              toast("Video deleted from server.");
+            }
+          } catch (e) {
+            toast("Could not delete video on server.");
+          }
+        }
+        setLoading(false);
+        return;
+      }
+
+      scheduleNextPoll();
+    }
+
+    function startPolling(key, id) {
+      stopPolling();
+      pollState = {
+        key,
+        id,
+        startTime: null,
+        tick: 0,
+        baseInterval: POLL_BASE_INTERVAL,
+        timeoutPerRequest: POLL_TIMEOUT_MS,
+        nextTimerId: null,
+        inFlight: false,
+        abortController: null,
+      };
+      runPoll(true);
+    }
+
+    // -----------------------------
+    // Event wiring
+    // -----------------------------
+    els.toggleKeyVisibility.addEventListener("click", (e) => {
+      e.preventDefault();
+      const type = els.apiKey.type === "password" ? "text" : "password";
+      els.apiKey.type = type;
+      els.toggleKeyVisibility.textContent = type === "password" ? "Show" : "Hide";
+    });
+
+    els.apiKey.addEventListener("input", () => {
+      saveKeyAuto();
+    });
+
+    els.clearKeyBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearKey();
+    });
+
+    // Model and size changes update size options and reprocess ref preview if needed
+    function updateSizeOptions() {
+      const model = els.model.value;
+      const sizes = SIZE_MAP[model] || SIZE_MAP["sora-2"];
+      const prev = els.size.value;
+      els.size.innerHTML = "";
+      for (const [label, dims] of Object.entries(sizes)) {
+        const opt = document.createElement("option");
+        opt.value = dims;
+        opt.textContent = label + " (" + dims + ")";
+        els.size.appendChild(opt);
+      }
+      const validVals = new Set(Object.values(sizes));
+      if (validVals.has(prev)) {
+        els.size.value = prev;
+      } else {
+        els.size.value = sizes.Landscape;
+      }
+      if (refOriginalFile) {
+        updateRefPreview().catch(() => {});
+      }
+    }
+    els.model.addEventListener("change", updateSizeOptions);
+    els.size.addEventListener("change", () => {
+      if (refOriginalFile) updateRefPreview().catch(() => {});
+    });
+
+    // Reference image interactions
+    els.refDrop.addEventListener("click", () => {
+      els.refFile.click();
+    });
+    els.refFile.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) await handleReferenceFile(file);
+      els.refFile.value = "";
+    });
+
+    // Drag and drop
+    ["dragenter", "dragover"].forEach((evt) =>
+      els.refDrop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        els.refDrop.classList.add("border-zinc-500");
+      })
+    );
+    ["dragleave", "drop"].forEach((evt) =>
+      els.refDrop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        els.refDrop.classList.remove("border-zinc-500");
+      })
+    );
+    els.refDrop.addEventListener("drop", async (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) await handleReferenceFile(file);
+    });
+
+    // Paste support: in drop area and in prompt textarea
+    function pasteHandler(e) {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.kind === "file") {
+          const file = it.getAsFile();
+          if (file && file.type.startsWith("image/")) {
+            e.preventDefault();
+            handleReferenceFile(file);
+            break;
+          }
+        }
+      }
+    }
+    els.refDrop.addEventListener("paste", pasteHandler);
+    els.prompt.addEventListener("paste", pasteHandler);
+
+    // Clear reference
+    els.clearRefBtn.addEventListener("click", () => {
+      clearRefPreview();
+    });
+
+    // Create flow
+    els.createForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearError();
+      clearOutput();
+
+      const key = ensureApiKey();
+      if (!key) return;
+
+      const model = els.model.value;
+      const prompt = els.prompt.value.trim();
+      const size = els.size.value;
+      const seconds = els.seconds.value; // send as string
+
+      if (!model) {
+        showError("Validation error", "Model is required.");
+        return;
+      }
+      if (!prompt) {
+        showError("Validation error", "Prompt is required.");
+        return;
+      }
+      if (!size) {
+        showError("Validation error", "Size is required.");
+        return;
+      }
+      if (!["4", "8", "12"].includes(seconds)) {
+        showError("Validation error", "Duration must be 4, 8, or 12 seconds.");
+        return;
+      }
+
+      // If we have a reference original, (re)process it to exact target size as PNG
+      let refBlobToSend = null;
+      if (refOriginalFile) {
+        const parsed = parseSizeStr(size);
+        if (!parsed) {
+          showError("Invalid size", "Invalid target size for reference image.");
+          return;
+        }
+        try {
+          const processed = await processToPngPadded(refOriginalFile, parsed.w, parsed.h);
+          refBlobToSend = processed.blob;
+        } catch (err) {
+          showError("Reference processing failed", String(err));
+          return;
+        }
+      }
+
+      const payload = { model, prompt, size, seconds };
+
+      setLoading(true);
+      previewFetched = false;
+      lastStatus = null;
+
+      try {
+        const job = await createVideo(key, payload, refBlobToSend);
+        if (!job) {
+          setLoading(false);
+          return; // error already shown
+        }
+        currentJobId = job.id;
+        lastStatus = job.status || null;
+        setStatus(job);
+        els.waitingMsg.classList.remove("hidden");
+        els.cancelBtn.disabled = false;
+        startPolling(key, currentJobId);
+      } catch (err) {
+        setLoading(false);
+        showError("Network or runtime error", String(err));
+      }
+    });
+
+    // Cancel behavior
+    els.cancelBtn.addEventListener("click", async () => {
+      clearError();
+      const key = ensureApiKey();
+      if (!key) return;
+      if (!currentJobId) {
+        showError("No active job", "Start a job first.");
+        return;
+      }
+
+      // If job is still processing, do not call DELETE (API returns 400). Just stop polling.
+      if (lastStatus === "queued" || lastStatus === "in_progress") {
+        stopPolling();
+        setLoading(false);
+        toast("Stopped polling. Server is still processing and cannot be deleted yet.");
+        currentJobId = null;
+        els.cancelBtn.disabled = true;
+        return;
+      }
+
+      // If job is not processing anymore, try to delete it.
+      els.cancelBtn.disabled = true;
+      try {
+        const resp = await deleteVideo(key, currentJobId);
+        if (resp && resp.deleted) {
+          toast("Job deleted.");
+          resetAll();
+        } else {
+          toast("Tried to delete. Check job status.");
+          els.cancelBtn.disabled = false;
+        }
+      } catch (err) {
+        showError("Failed to delete job", String(err));
+        els.cancelBtn.disabled = false;
+      }
+    });
+
+    els.resetBtn.addEventListener("click", () => {
+      resetAll();
+    });
+
+    function resetAll() {
+      stopPolling();
+      currentJobId = null;
+      lastStatus = null;
+      previewFetched = false;
+      setLoading(false);
+
+      // status
+      els.statusId.textContent = "N/A";
+      els.statusText.textContent = "N/A";
+      els.statusProgress.textContent = "N/A";
+      els.progressBar.style.width = "0%";
+      els.statusCreated.textContent = "N/A";
+      els.lastJobJson.textContent = "-";
+
+      clearOutput();
+      clearError();
+      els.cancelBtn.disabled = true;
+    }
+
+    // -----------------------------
+    // Init
+    // -----------------------------
+    loadKey();
+    updateSizeOptions();
+    clearOutput();
+    clearError();
+    setLoading(false);
+  </script>
+</body>
+</html>
