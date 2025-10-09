@@ -2,8 +2,9 @@
 <html lang="en" class="h-full">
 <head>
   <meta charset="utf-8" />
-  <title>Animated QR Code Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Animated QR Code Generator</title>
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -11,7 +12,7 @@
       theme: {
         extend: {
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
-          colors: { backdrop: '#0b1220' }
+          colors: { backdrop: '#09090b' }
         }
       }
     }
@@ -21,21 +22,21 @@
   <style>
     html, body { height: 100%; }
     .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-    .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.35); border-radius: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(161,161,170,0.35); border-radius: 8px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
     .input-number::-webkit-outer-spin-button,
     .input-number::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .input-number { -moz-appearance: textfield; }
   </style>
 </head>
-<body class="h-full bg-backdrop text-slate-200 font-sans">
+<body class="h-full bg-backdrop text-zinc-200 font-sans">
   <div class="min-h-full">
-    <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60">
+    <header class="border-b border-zinc-800 bg-zinc-900/70 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-        <h1 class="text-xl sm:text-2xl font-semibold text-slate-100">Animated QR Code Generator • Dot Style</h1>
+        <h1 class="text-xl sm:text-2xl font-semibold text-zinc-100">Animated QR Code Generator • Dot Style</h1>
         <div class="flex items-center gap-3">
-          <button id="btn-pause" class="rounded-md px-3 py-1.5 text-sm font-medium bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700">Pause</button>
-          <button id="btn-download" class="rounded-md px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500">Download PNG</button>
+          <button id="btn-pause" class="rounded-md px-3 py-1.5 text-sm font-medium bg-zinc-800 text-zinc-100 hover:bg-zinc-700 border border-zinc-700">Pause</button>
+          <button id="btn-download" class="rounded-md px-3 py-1.5 text-sm font-medium bg-zinc-700 text-zinc-100 hover:bg-zinc-600 border border-zinc-600">Download PNG</button>
         </div>
       </div>
     </header>
@@ -43,21 +44,21 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
       <!-- Controls -->
       <section class="lg:col-span-5">
-        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 sm:p-5">
-          <h2 class="font-semibold text-lg mb-3 text-slate-100">QR Content</h2>
+        <div class="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 p-4 sm:p-5">
+          <h2 class="font-semibold text-lg mb-3 text-zinc-100">QR Content</h2>
           <div class="space-y-3">
             <label class="block">
-              <span class="text-sm font-medium text-slate-300">Text / URL</span>
+              <span class="text-sm font-medium text-zinc-300">Text / URL</span>
               <input id="inp-text" type="text"
-                     class="mt-1 block w-full rounded-md bg-slate-900 text-slate-200 placeholder-slate-500 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500"
+                     class="mt-1 block w-full rounded-md bg-zinc-900 text-zinc-200 placeholder-zinc-500 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400"
                      placeholder="https://example.com" value="https://example.com" />
             </label>
 
             <div class="grid grid-cols-2 gap-3">
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Error Correction</span>
+                <span class="text-sm font-medium text-zinc-300">Error Correction</span>
                 <select id="inp-ecl"
-                        class="mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500">
+                        class="mt-1 block w-full rounded-md bg-zinc-900 text-zinc-200 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400">
                   <option value="L">L (low)</option>
                   <option value="M" selected>M (medium)</option>
                   <option value="Q">Q (quartile)</option>
@@ -65,72 +66,72 @@
                 </select>
               </label>
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Module Size (px)</span>
+                <span class="text-sm font-medium text-zinc-300">Module Size (px)</span>
                 <input id="inp-module" type="number" min="2" max="24" step="1" value="10"
-                       class="input-number mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500" />
+                       class="input-number mt-1 block w-full rounded-md bg-zinc-900 text-zinc-200 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400" />
               </label>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Quiet Zone (modules)</span>
+                <span class="text-sm font-medium text-zinc-300">Quiet Zone (modules)</span>
                 <input id="inp-margin" type="number" min="0" max="16" step="1" value="4"
-                       class="input-number mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500" />
+                       class="input-number mt-1 block w-full rounded-md bg-zinc-900 text-zinc-200 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400" />
               </label>
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Dot Size (%)</span>
+                <span class="text-sm font-medium text-zinc-300">Dot Size (%)</span>
                 <input id="inp-dot" type="range" min="50" max="100" step="1" value="88"
-                       class="mt-3 w-full accent-emerald-500" />
+                       class="mt-3 w-full accent-zinc-400" />
               </label>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Background</span>
-                <input id="inp-bg" type="color" value="#0b1220"
-                       class="mt-1 block w-full h-10 rounded-md border border-slate-700 bg-slate-900 p-1" />
+                <span class="text-sm font-medium text-zinc-300">Background</span>
+                <input id="inp-bg" type="color" value="#09090b"
+                       class="mt-1 block w-full h-10 rounded-md border border-zinc-700 bg-zinc-900 p-1" />
               </label>
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Dot Base Color</span>
+                <span class="text-sm font-medium text-zinc-300">Dot Base Color</span>
                 <input id="inp-dark" type="color" value="#e5e7eb"
-                       class="mt-1 block w-full h-10 rounded-md border border-slate-700 bg-slate-900 p-1" />
+                       class="mt-1 block w-full h-10 rounded-md border border-zinc-700 bg-zinc-900 p-1" />
               </label>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <label class="block">
-                <span class="text-sm font-medium text-slate-300">Target FPS</span>
+                <span class="text-sm font-medium text-zinc-300">Target FPS</span>
                 <input id="inp-fps" type="number" min="1" max="60" step="1" value="60"
-                       class="input-number mt-1 block w-full rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500" />
+                       class="input-number mt-1 block w-full rounded-md bg-zinc-900 text-zinc-200 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400" />
               </label>
               <label class="inline-flex items-center gap-2 text-sm mt-7">
-                <input id="chk-square-finders" type="checkbox" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" checked />
+                <input id="chk-square-finders" type="checkbox" class="rounded border-zinc-600 text-zinc-200 focus:ring-zinc-400" checked />
                 Keep square finder patterns
               </label>
             </div>
 
             <div class="flex items-center justify-between pt-2">
-              <button id="btn-regenerate" class="rounded-md px-3 py-2 text-sm font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100">Regenerate QR</button>
+              <button id="btn-regenerate" class="rounded-md px-3 py-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100">Regenerate QR</button>
               <label class="inline-flex items-center gap-2 text-sm">
-                <input id="chk-live" type="checkbox" class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500" checked />
+                <input id="chk-live" type="checkbox" class="rounded border-zinc-600 text-zinc-200 focus:ring-zinc-400" checked />
                 Live update on typing
               </label>
             </div>
           </div>
         </div>
 
-        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 sm:p-5 mt-6">
+        <div class="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 p-4 sm:p-5 mt-6">
           <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-lg text-slate-100">Animation Layers</h2>
+            <h2 class="font-semibold text-lg text-zinc-100">Animation Layers</h2>
             <div class="flex gap-2">
-              <select id="sel-new-layer" class="rounded-md bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500">
+              <select id="sel-new-layer" class="rounded-md bg-zinc-900 text-zinc-200 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400">
                 <option value="sweep">Sweep</option>
                 <option value="ripple">Ripple</option>
                 <option value="rainbow">Rainbow</option>
                 <option value="twinkle">Twinkle</option>
                 <option value="snake">Snake</option>
               </select>
-              <button id="btn-add-layer" class="rounded-md px-3 py-2 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500">Add Layer</button>
+              <button id="btn-add-layer" class="rounded-md px-3 py-2 text-sm font-medium bg-zinc-700 text-zinc-100 hover:bg-zinc-600 border border-zinc-600">Add Layer</button>
             </div>
           </div>
 
@@ -140,11 +141,11 @@
 
       <!-- Preview -->
       <section class="lg:col-span-7">
-        <div class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 sm:p-6 flex flex-col items-center justify-center">
+        <div class="bg-zinc-900 rounded-xl shadow-sm border border-zinc-800 p-4 sm:p-6 flex flex-col items-center justify-center">
           <div class="w-full flex items-center justify-center">
-            <canvas id="qr-canvas" class="rounded-lg border border-slate-800 shadow-sm" width="512" height="512"></canvas>
+            <canvas id="qr-canvas" class="rounded-lg border border-zinc-800 shadow-sm" width="512" height="512"></canvas>
           </div>
-          <p class="text-xs text-slate-400 mt-3">
+          <p class="text-xs text-zinc-400 mt-3">
             Tip: For maximum scan reliability, keep strong contrast between background and dots. Some scanners may struggle with inverted (light dots on dark) designs.
           </p>
         </div>
@@ -194,7 +195,7 @@
       ecl: "M",
       moduleSize: 10,
       margin: 4,
-      bgColor: "#0b1220",
+      bgColor: "#09090b",
       darkColor: "#e5e7eb",
       dotPercent: 88,
       fps: 60,
@@ -466,17 +467,17 @@
       layersEl.innerHTML = '';
       state.layers.forEach((L, idx) => {
         const card = document.createElement('div');
-        card.className = "border border-slate-800 rounded-lg p-3 sm:p-4 bg-slate-900";
+        card.className = "border border-zinc-800 rounded-lg p-3 sm:p-4 bg-zinc-900";
         card.innerHTML = `
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-              <input type="checkbox" ${L.enabled ? 'checked' : ''} class="layer-toggle rounded border-slate-600 text-emerald-500 focus:ring-emerald-500">
-              <input type="text" value="${L.name}" class="layer-name text-sm font-medium bg-transparent outline-none border-b border-transparent focus:border-emerald-400 text-slate-100" />
-              <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">${L.type}</span>
+              <input type="checkbox" ${L.enabled ? 'checked' : ''} class="layer-toggle rounded border-zinc-600 text-zinc-200 focus:ring-zinc-400">
+              <input type="text" value="${L.name}" class="layer-name text-sm font-medium bg-transparent outline-none border-b border-transparent focus:border-zinc-400 text-zinc-100" />
+              <span class="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300">${L.type}</span>
             </div>
             <div class="flex items-center gap-1">
-              <button class="move-up text-xs px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 text-slate-200" title="Move up">▲</button>
-              <button class="move-down text-xs px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 text-slate-200" title="Move down">▼</button>
+              <button class="move-up text-xs px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800 text-zinc-200" title="Move up">▲</button>
+              <button class="move-down text-xs px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800 text-zinc-200" title="Move down">▼</button>
               <button class="remove text-xs px-2 py-1 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10" title="Remove">Remove</button>
             </div>
           </div>
@@ -487,8 +488,8 @@
         function sliderRow(label, min, max, step, value, oninput) {
           const wrap = document.createElement('label');
           wrap.className = 'block';
-          wrap.innerHTML = `<span class="block text-xs text-slate-400 mb-1">${label} <span class="val text-slate-200 font-medium"></span></span>
-            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" class="w-full accent-emerald-500">`;
+          wrap.innerHTML = `<span class="block text-xs text-zinc-400 mb-1">${label} <span class="val text-zinc-200 font-medium"></span></span>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" class="w-full accent-zinc-400">`;
           const rng = wrap.querySelector('input');
           const valSpan = wrap.querySelector('.val');
           const setVal = v => valSpan.textContent = (typeof v === 'number') ? Number(v).toFixed(2) : v;
@@ -499,8 +500,8 @@
         function pickRow(label, value, oninput) {
           const wrap = document.createElement('label');
           wrap.className = 'block';
-          wrap.innerHTML = `<span class="block text-xs text-slate-400 mb-1">${label}</span>
-            <input type="color" value="${value}" class="w-full h-9 rounded border border-slate-700 bg-slate-900 p-1">`;
+          wrap.innerHTML = `<span class="block text-xs text-zinc-400 mb-1">${label}</span>
+            <input type="color" value="${value}" class="w-full h-9 rounded border border-zinc-700 bg-zinc-900 p-1">`;
           const inp = wrap.querySelector('input');
           inp.addEventListener('input', (e) => oninput(e.target.value));
           return wrap;
@@ -508,8 +509,8 @@
         function selectRow(label, value, options, oninput) {
           const wrap = document.createElement('label');
           wrap.className = 'block';
-          wrap.innerHTML = `<span class="block text-xs text-slate-400 mb-1">${label}</span>
-            <select class="w-full rounded bg-slate-900 text-slate-200 border border-slate-700 focus:border-emerald-500 focus:ring-emerald-500"></select>`;
+          wrap.innerHTML = `<span class="block text-xs text-zinc-400 mb-1">${label}</span>
+            <select class="w-full rounded bg-zinc-900 text-zinc-200 border border-zinc-700 focus:border-zinc-400 focus:ring-zinc-400"></select>`;
           const sel = wrap.querySelector('select');
           options.forEach(([val, text]) => {
             const opt = document.createElement('option');
@@ -523,7 +524,7 @@
         function checkboxRow(label, checked, oninput) {
           const wrap = document.createElement('label');
           wrap.className = 'inline-flex items-center gap-2 mt-2';
-          wrap.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} class="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500"><span class="text-xs text-slate-400">${label}</span>`;
+          wrap.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} class="rounded border-zinc-600 text-zinc-200 focus:ring-zinc-400"><span class="text-xs text-zinc-400">${label}</span>`;
           const inp = wrap.querySelector('input');
           inp.addEventListener('input', (e) => oninput(e.target.checked));
           return wrap;
