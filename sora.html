@@ -9,6 +9,10 @@
   <style>
     /* Prevent textarea resize handle */
     textarea#prompt { resize: none; }
+    #resultVideo {
+      max-height: min(70vh, 600px);
+      object-fit: contain;
+    }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100">
@@ -165,7 +169,7 @@
     </section>
 
     <!-- Status + Output -->
-    <section class="grid grid-cols-1 gap-6 md:grid-cols-2">
+    <section class="flex flex-col gap-6">
       <!-- Status panel -->
       <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
         <div class="mb-3 flex items-center justify-between">
