@@ -1,14 +1,13 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Gemini Image Generator (Google AI Studio + OpenRouter)</title>
+  <title>Gemini Image Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -22,10 +21,12 @@
     }
   </script>
   <style>
-    /* Disable resizing and hide the corner handle */
     textarea {
       resize: none !important;
-      overflow: auto; /* keep scroll behavior */
+      overflow: auto;
+    }
+    .select-wrapper select::-ms-expand {
+      display: none;
     }
   </style>
 </head>
@@ -46,10 +47,17 @@
       <!-- Endpoint -->
       <div class="space-y-2">
         <label for="endpoint" class="block text-sm text-zinc-300">Endpoint</label>
-        <select id="endpoint" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60">
-          <option value="google">Google AI Studio - model: gemini-2.5-flash-image</option>
-          <option value="openrouter">OpenRouter - model: google/gemini-2.5-flash-image</option>
-        </select>
+        <div class="select-wrapper relative">
+          <select id="endpoint" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
+            <option value="google">Google AI Studio - model: gemini-2.5-flash-image</option>
+            <option value="openrouter">OpenRouter - model: google/gemini-2.5-flash-image</option>
+          </select>
+          <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+            </svg>
+          </span>
+        </div>
         <p class="text-xs text-zinc-500">Model name is tied to the selected endpoint.</p>
       </div>
 
@@ -64,21 +72,47 @@
         <p class="text-xs text-zinc-500">Provider-specific API key.</p>
       </div>
 
-      <!-- System message (non-resizable, same height as prompt) -->
+      <!-- System message -->
       <div class="space-y-2">
         <label for="systemMsg" class="block text-sm text-zinc-300">System Message</label>
         <textarea id="systemMsg" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Optional: overarching instructions for the model."></textarea>
         <p class="text-xs text-zinc-500">System message to instruct the model.</p>
       </div>
 
-      <!-- Prompt + paste images (non-resizable) -->
+      <!-- Prompt -->
       <div class="space-y-2">
         <label for="prompt" class="block text-sm text-zinc-300">Prompt</label>
         <textarea id="prompt" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Describe the image you want. Tip: paste images here with Ctrl/Cmd+V to condition the generation."></textarea>
         <p class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 5 images, 32 MB each.</p>
       </div>
 
-      <!-- Pasted images preview (fit without cropping) -->
+      <!-- Aspect Ratio -->
+      <div class="space-y-2">
+        <label for="aspectRatio" class="block text-sm text-zinc-300">Aspect Ratio</label>
+        <div class="select-wrapper relative">
+          <select id="aspectRatio" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
+            <option value="">Auto</option>
+            <option value="1:1">1:1 - 1024x1024</option>
+            <option value="2:3">2:3 - 832x1248</option>
+            <option value="3:2">3:2 - 1248x832</option>
+            <option value="3:4">3:4 - 864x1184</option>
+            <option value="4:3">4:3 - 1184x864</option>
+            <option value="4:5">4:5 - 896x1152</option>
+            <option value="5:4">5:4 - 1152x896</option>
+            <option value="9:16">9:16 - 768x1344</option>
+            <option value="16:9">16:9 - 1344x768</option>
+            <option value="21:9">21:9 - 1536x672</option>
+          </select>
+          <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+            </svg>
+          </span>
+        </div>
+        <p class="text-xs text-zinc-500">Choose a target aspect ratio. "Auto" keeps the provider default.</p>
+      </div>
+
+      <!-- Pasted images -->
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <p class="text-sm text-zinc-300">Pasted Images</p>
@@ -99,7 +133,6 @@
       <!-- Actions -->
       <div class="flex flex-wrap gap-3 items-center">
         <button id="generateBtn" class="px-4 py-2 bg-accent/20 text-accent hover:bg-accent/30 rounded-lg font-medium border border-accent/40">Generate</button>
-        <button id="exampleBtn" class="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm">Fill example</button>
         <div id="status" class="text-sm text-zinc-400"></div>
       </div>
 
@@ -111,7 +144,6 @@
         </div>
         <div id="results" class="grid sm:grid-cols-2 gap-4"></div>
 
-        <!-- Image card (fit without cropping) -->
         <template id="resultImageTpl">
           <div class="rounded-lg overflow-hidden border border-border">
             <div class="bg-black/30 h-80 sm:h-96 flex items-center justify-center">
@@ -127,7 +159,6 @@
           </div>
         </template>
 
-        <!-- Text card -->
         <template id="resultTextTpl">
           <div class="rounded-lg overflow-hidden border border-border bg-black/20">
             <div class="p-3 text-xs text-zinc-400 border-b border-border">Text</div>
@@ -139,7 +170,7 @@
         </template>
       </div>
 
-      <!-- Info panel (non-error metadata like usage, promptFeedback) -->
+      <!-- Info -->
       <div id="infoPanel" class="hidden">
         <div class="rounded-lg border border-indigo-800 bg-indigo-900/30">
           <div class="px-4 py-2 border-b border-indigo-800 text-indigo-300 font-medium flex items-center justify-between">
@@ -150,7 +181,7 @@
         </div>
       </div>
 
-      <!-- Error panel (actual errors only) -->
+      <!-- Error -->
       <div id="errorPanel" class="hidden">
         <div class="rounded-lg border border-red-800 bg-red-900/30">
           <div class="px-4 py-2 border-b border-red-800 text-red-300 font-medium">Error</div>
@@ -208,7 +239,6 @@
         headers: (apiKey) => ({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
-          // Optional but recommended by OpenRouter
           'HTTP-Referer': location.origin,
           'X-Title': 'Gemini Image Generator'
         }),
@@ -224,9 +254,9 @@
 
     const state = {
       provider: 'google',
-      images: [], // { mime, base64, name, size, dataUrl }
+      images: [],
       maxImages: 5,
-      maxBytes: 32 * 1024 * 1024, // 32MB
+      maxBytes: 32 * 1024 * 1024,
     };
 
     const els = {
@@ -237,11 +267,11 @@
       clearKey: $('#clearKey'),
       systemMsg: $('#systemMsg'),
       prompt: $('#prompt'),
+      aspectRatio: $('#aspectRatio'),
       clearImages: $('#clearImages'),
       thumbs: $('#thumbs'),
       thumbTpl: $('#thumbTpl'),
       generateBtn: $('#generateBtn'),
-      exampleBtn: $('#exampleBtn'),
       status: $('#status'),
       results: $('#results'),
       resultImageTpl: $('#resultImageTpl'),
@@ -255,7 +285,9 @@
       spinner: $('#spinner'),
     };
 
-    // Load/save provider + API keys
+    const SYSTEM_MSG_KEY = 'image_gen_system_message';
+    const ASPECT_RATIO_KEY = 'image_gen_aspect_ratio';
+
     function loadProvider() {
       const saved = localStorage.getItem('image_gen_provider') || 'google';
       state.provider = PROVIDERS[saved] ? saved : 'google';
@@ -279,8 +311,6 @@
       els.apiKey.value = '';
     }
 
-    // System message storage
-    const SYSTEM_MSG_KEY = 'image_gen_system_message';
     function loadSystemMsg() {
       return localStorage.getItem(SYSTEM_MSG_KEY) || '';
     }
@@ -288,20 +318,30 @@
       localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value);
     }
 
+    function loadAspectRatio() {
+      return localStorage.getItem(ASPECT_RATIO_KEY) || '';
+    }
+    function saveAspectRatio(value) {
+      if (!value) {
+        localStorage.removeItem(ASPECT_RATIO_KEY);
+        return;
+      }
+      localStorage.setItem(ASPECT_RATIO_KEY, value);
+    }
+
     function applyProviderUI() {
       const p = PROVIDERS[state.provider];
       els.apiKeyLabel.textContent = p.apiKeyLabel;
       els.apiKey.placeholder = p.apiKeyPlaceholder;
       els.apiKey.value = loadApiKeyForCurrentProvider();
-      // Load system message (global)
       els.systemMsg.value = loadSystemMsg();
+      els.aspectRatio.value = loadAspectRatio();
       saveProvider();
       setStatus(`Using ${p.name} (${p.model}).`);
       clearError();
       clearInfo();
     }
 
-    // UI helpers
     function setStatus(msg) { els.status.textContent = msg || ''; }
     function showSpinner(on) { els.spinner.classList.toggle('hidden', !on); }
     function showError(objOrText) {
@@ -335,10 +375,11 @@
 
     els.clearInfoBtn.addEventListener('click', clearInfo);
 
-    // Persist system message as user types
     els.systemMsg.addEventListener('input', saveSystemMsg);
+    els.aspectRatio.addEventListener('change', () => {
+      saveAspectRatio(els.aspectRatio.value);
+    });
 
-    // Paste handler for prompt (collect images)
     els.prompt.addEventListener('paste', async (e) => {
       try {
         const items = e.clipboardData?.items || [];
@@ -384,7 +425,6 @@
       });
     }
 
-    // Build request parts (Google)
     function buildGoogleRequest(prompt) {
       const parts = [{ text: prompt }];
       for (const img of state.images) {
@@ -397,15 +437,23 @@
       }
 
       const sysText = (els.systemMsg.value || '').trim();
+      const aspectRatio = (els.aspectRatio.value || '').trim();
 
       const body = {
         contents: [{ role: 'user', parts }]
       };
 
-      // Include system_instruction when provided
       if (sysText) {
         body.system_instruction = {
           parts: [{ text: sysText }]
+        };
+      }
+
+      if (aspectRatio) {
+        body.generationConfig = {
+          imageConfig: {
+            aspectRatio
+          }
         };
       }
 
@@ -416,19 +464,18 @@
       };
     }
 
-    // Build request (OpenRouter) - with system message at first of messages
     function buildOpenRouterRequest(prompt) {
-      // OpenAI-compatible content array with text + image_url items
       const content = [];
       content.push({ type: 'text', text: prompt });
       for (const img of state.images) {
         content.push({
           type: 'image_url',
-          image_url: { url: img.dataUrl } // data URL (base64) for input image
+          image_url: { url: img.dataUrl }
         });
       }
 
       const sysText = (els.systemMsg.value || '').trim();
+      const aspectRatio = (els.aspectRatio.value || '').trim();
 
       const messages = [];
       if (sysText) {
@@ -440,9 +487,15 @@
         model: PROVIDERS.openrouter.model,
         messages,
         modalities: ['image', 'text'],
-        // Provider preferences as requested
         provider: { ignore: ['google-ai-studio'] }
       };
+
+      if (aspectRatio) {
+        payload.image_config = {
+          aspect_ratio: aspectRatio
+        };
+      }
+
       return {
         url: PROVIDERS.openrouter.url(),
         headers: PROVIDERS.openrouter.headers(els.apiKey.value.trim()),
@@ -451,7 +504,6 @@
     }
 
     els.generateBtn.addEventListener('click', async () => {
-      // Clear previous output immediately
       els.results.innerHTML = '';
 
       clearError();
@@ -488,11 +540,9 @@
           return;
         }
 
-        // Provider-specific finish checks BEFORE parsing/rendering
         if (provider === 'openrouter') {
           const choices = Array.isArray(data?.choices) ? data.choices : [];
           const reasons = choices.map(ch => String(ch?.native_finish_reason || '').toLowerCase()).filter(Boolean);
-          // If any reason exists and isn't "stop", raise error and show full JSON
           if (reasons.length && reasons.some(r => r !== 'stop')) {
             showError(data);
             setStatus('OpenRouter did not finish with "stop".');
@@ -502,14 +552,12 @@
 
         const structured = p.parseResponse(data);
 
-        // Google: when no output is generated, treat as blocked and raise error with full JSON
         if (structured.items.length === 0) {
           if (provider === 'google') {
             showError(data);
             setStatus('No output generated (likely blocked).');
             return;
           } else {
-            // Non-Google: keep previous behavior (optional)
             els.results.innerHTML = '<div class="text-sm text-zinc-400">No image or text parts returned.</div>';
             const info = p.info(data);
             if (Object.keys(info).length) showInfo(info);
@@ -537,7 +585,6 @@
       }
     });
 
-    // Parse Google response
     function parseGoogleResponse(data) {
       const items = [];
       const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
@@ -559,18 +606,15 @@
       return { items };
     }
 
-    // Parse OpenRouter response
     function parseOpenRouterResponse(data) {
       const items = [];
       const choices = Array.isArray(data?.choices) ? data.choices : [];
       for (const ch of choices) {
         const msg = ch?.message || {};
-        // Text content
         if (typeof msg.content === 'string') {
           const t = msg.content.trim();
           if (t) items.push({ kind: 'text', text: t });
         }
-        // Images array (data URLs)
         const images = Array.isArray(msg?.images) ? msg.images : [];
         for (const im of images) {
           const url = im?.image_url?.url || im?.url || '';
@@ -620,7 +664,6 @@
             const mimeEl = node.querySelector('[data-role="mime"]');
             if (mimeEl) mimeEl.textContent = mime;
 
-            // Download anchor
             let a = node.querySelector('[data-role="download"]');
             if (!a) {
               const actions = node.querySelector('[data-role="actions"]') || document.createElement('div');
@@ -634,7 +677,6 @@
             a.href = dataUrl;
             a.download = `gemini-image-${Date.now()}.${extFromMime(mime)}`;
 
-            // Copy button (copy actual image to clipboard; convert to PNG if needed)
             let copyBtn = node.querySelector('[data-role="copy"]');
             if (!copyBtn) {
               const actions = node.querySelector('[data-role="actions"]') || document.createElement('div');
@@ -695,7 +737,6 @@
       }
     }
 
-    // Utilities
     function readAsDataURL(file) {
       return new Promise((resolve, reject) => {
         const fr = new FileReader();
@@ -705,26 +746,21 @@
       });
     }
 
-    // Clipboard image helpers (copy actual image; convert to PNG for incompatible formats)
     async function copyImageToClipboard(dataUrl, mime = 'image/png') {
       if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
         throw new Error('Image clipboard not supported in this browser.');
       }
 
-      // Try direct PNG write when already PNG; otherwise convert to PNG
       const wantPng = !/image\/png/i.test(mime);
       try {
         let pngBlob;
         if (!wantPng && /image\/png/i.test(mime)) {
-          // Data URL is PNG already; use it directly
           pngBlob = dataUrlToBlob(dataUrl);
           if (!/image\/png/i.test(pngBlob.type)) {
-            // Edge case: ensure PNG, otherwise convert via canvas
             const img = await loadImageFromDataUrl(dataUrl);
             pngBlob = await imageToPngBlob(img);
           }
         } else {
-          // Convert to PNG via canvas for non-PNG formats (e.g., webp, gif, jpg)
           const img = await loadImageFromDataUrl(dataUrl);
           pngBlob = await imageToPngBlob(img);
         }
@@ -779,7 +815,6 @@
       });
     }
 
-    // Clear buttons
     els.clearImages.addEventListener('click', () => {
       state.images = [];
       renderThumbs();
@@ -787,13 +822,11 @@
     });
     els.clearResults.addEventListener('click', () => { els.results.innerHTML = ''; setStatus('Results cleared.'); });
 
-    // Endpoint selector
     els.endpoint.addEventListener('change', () => {
       state.provider = els.endpoint.value;
       applyProviderUI();
     });
 
-    // API key UI
     els.toggleKey.addEventListener('click', () => {
       els.apiKey.type = els.apiKey.type === 'password' ? 'text' : 'password';
       els.toggleKey.textContent = els.apiKey.type === 'password' ? 'Show' : 'Hide';
@@ -801,16 +834,12 @@
     els.clearKey.addEventListener('click', () => { clearApiKey(); setStatus('API key cleared for current provider.'); });
     els.apiKey.addEventListener('input', saveApiKey);
 
-    // Example
-    els.exampleBtn.addEventListener('click', () => {
-      els.prompt.value = 'Create a picture of a nano banana dish in a fancy restaurant with a Gemini theme. Include a short caption describing the scene.';
-      setStatus('Example prompt filled. Paste an image to condition if you like.');
-    });
-
-    // Init
     loadProvider();
-    // Ensure system message is loaded on first render (in case provider load didn't set it yet)
     els.systemMsg.value = loadSystemMsg();
+    const savedAspect = loadAspectRatio();
+    if (savedAspect) {
+      els.aspectRatio.value = savedAspect;
+    }
   </script>
 </body>
 </html>
