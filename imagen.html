@@ -116,7 +116,9 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <p class="text-sm text-zinc-300">Pasted Images</p>
-          <div class="flex gap-2">
+          <div class="flex gap-2 items-center">
+            <button id="uploadImages" class="px-3 py-2 text-sm bg-zinc-700 hover:bg-zinc-600 rounded-lg">Upload images</button>
+            <input id="imageInput" type="file" accept="image/*" multiple class="hidden" />
             <button id="clearImages" class="px-3 py-2 text-sm bg-zinc-700 hover:bg-zinc-600 rounded-lg">Clear images</button>
           </div>
         </div>
@@ -269,6 +271,8 @@
       prompt: $('#prompt'),
       aspectRatio: $('#aspectRatio'),
       clearImages: $('#clearImages'),
+      uploadImages: $('#uploadImages'),
+      imageInput: $('#imageInput'),
       thumbs: $('#thumbs'),
       thumbTpl: $('#thumbTpl'),
       generateBtn: $('#generateBtn'),
@@ -387,27 +391,42 @@
         if (imageItems.length === 0) return;
         e.preventDefault();
 
-        for (const it of imageItems) {
-          if (state.images.length >= state.maxImages) {
-            setStatus(`Max ${state.maxImages} images reached.`);
-            break;
-          }
-          const file = it.getAsFile();
-          if (!file) continue;
-          if (file.size > state.maxBytes) {
-            setStatus(`Skipped image (${(file.size/1024/1024).toFixed(2)}MB): exceeds 32MB limit.`);
-            continue;
-          }
-          const dataUrl = await readAsDataURL(file);
-          const base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
-          const name = file.name || `pasted-${Date.now()}`;
-          state.images.push({ mime: file.type || 'image/png', base64, name, size: file.size, dataUrl });
-        }
-        renderThumbs();
+        const files = imageItems
+          .map(it => it.getAsFile())
+          .filter((file) => !!file);
+
+        await handleFiles(files);
       } catch (err) {
         showError(err?.message || String(err));
       }
     });
+
+    async function handleFiles(filesIterable) {
+      const files = Array.from(filesIterable || []);
+      if (!files.length) return;
+
+      for (const file of files) {
+        if (!file) continue;
+        if (!file.type.startsWith('image/')) {
+          setStatus(`Skipped ${file.name || 'file'}: not an image.`);
+          continue;
+        }
+        if (state.images.length >= state.maxImages) {
+          setStatus(`Max ${state.maxImages} images reached.`);
+          break;
+        }
+        if (file.size > state.maxBytes) {
+          setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)}MB): exceeds 32MB limit.`);
+          continue;
+        }
+        const dataUrl = await readAsDataURL(file);
+        const base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
+        const name = file.name || `upload-${Date.now()}`;
+        state.images.push({ mime: file.type || 'image/png', base64, name, size: file.size, dataUrl });
+      }
+
+      renderThumbs();
+    }
 
     function renderThumbs() {
       els.thumbs.innerHTML = '';
@@ -814,6 +833,20 @@
         }
       });
     }
+
+    els.uploadImages.addEventListener('click', () => {
+      els.imageInput.click();
+    });
+
+    els.imageInput.addEventListener('change', async (e) => {
+      try {
+        await handleFiles(e.target.files);
+      } catch (err) {
+        showError(err?.message || String(err));
+      } finally {
+        e.target.value = '';
+      }
+    });
 
     els.clearImages.addEventListener('click', () => {
       state.images = [];
