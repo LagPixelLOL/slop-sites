@@ -49,8 +49,8 @@
         <label for="endpoint" class="block text-sm text-zinc-300">Endpoint</label>
         <div class="select-wrapper relative">
           <select id="endpoint" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
-            <option value="google">Google AI Studio - model: gemini-2.5-flash-image</option>
-            <option value="openrouter">OpenRouter - model: google/gemini-2.5-flash-image</option>
+            <option value="google">Google AI Studio - model: gemini-3-pro-image-preview</option>
+            <option value="openrouter">OpenRouter - model: google/gemini-3-pro-image-preview</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -86,22 +86,40 @@
         <p class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 5 images, 32 MB each.</p>
       </div>
 
+      <!-- Image Size -->
+      <div class="space-y-2">
+        <label for="imageSize" class="block text-sm text-zinc-300">Image Size</label>
+        <div class="select-wrapper relative">
+          <select id="imageSize" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
+            <option value="1K">1K</option>
+            <option value="2K">2K</option>
+            <option value="4K">4K</option>
+          </select>
+          <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+            </svg>
+          </span>
+        </div>
+        <p class="text-xs text-zinc-500">Select target resolution.</p>
+      </div>
+
       <!-- Aspect Ratio -->
       <div class="space-y-2">
         <label for="aspectRatio" class="block text-sm text-zinc-300">Aspect Ratio</label>
         <div class="select-wrapper relative">
           <select id="aspectRatio" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
             <option value="">Auto</option>
-            <option value="1:1">1:1 - 1024x1024</option>
-            <option value="2:3">2:3 - 832x1248</option>
-            <option value="3:2">3:2 - 1248x832</option>
-            <option value="3:4">3:4 - 864x1184</option>
-            <option value="4:3">4:3 - 1184x864</option>
-            <option value="4:5">4:5 - 896x1152</option>
-            <option value="5:4">5:4 - 1152x896</option>
-            <option value="9:16">9:16 - 768x1344</option>
-            <option value="16:9">16:9 - 1344x768</option>
-            <option value="21:9">21:9 - 1536x672</option>
+            <option value="1:1">1:1 - Square</option>
+            <option value="2:3">2:3 - Portrait</option>
+            <option value="3:2">3:2 - Landscape</option>
+            <option value="3:4">3:4 - Portrait</option>
+            <option value="4:3">4:3 - Landscape</option>
+            <option value="4:5">4:5 - Portrait</option>
+            <option value="5:4">5:4 - Landscape</option>
+            <option value="9:16">9:16 - Tall</option>
+            <option value="16:9">16:9 - Wide</option>
+            <option value="21:9">21:9 - Ultrawide</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -210,10 +228,10 @@
       google: {
         id: 'google',
         name: 'Google AI Studio',
-        model: 'gemini-2.5-flash-image',
+        model: 'gemini-3-pro-image-preview',
         apiKeyStorage: 'gemini_api_key',
         apiKeyLabel: 'Google API Key',
-        apiKeyPlaceholder: 'AIza...',
+        apiKeyPlaceholder: 'AIzaSy...',
         buildRequest: buildGoogleRequest,
         parseResponse: parseGoogleResponse,
         url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -231,7 +249,7 @@
       openrouter: {
         id: 'openrouter',
         name: 'OpenRouter',
-        model: 'google/gemini-2.5-flash-image',
+        model: 'google/gemini-3-pro-image-preview',
         apiKeyStorage: 'openrouter_api_key',
         apiKeyLabel: 'OpenRouter API Key',
         apiKeyPlaceholder: 'sk-or-v1-...',
@@ -240,9 +258,7 @@
         url: () => 'https://openrouter.ai/api/v1/chat/completions',
         headers: (apiKey) => ({
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': location.origin,
-          'X-Title': 'Gemini Image Generator'
+          'Authorization': `Bearer ${apiKey}`
         }),
         info: (data) => {
           const info = {};
@@ -257,8 +273,8 @@
     const state = {
       provider: 'google',
       images: [],
-      maxImages: 5,
-      maxBytes: 32 * 1024 * 1024,
+      maxImages: 32,
+      maxBytes: 256 * 1024 * 1024,
     };
 
     const els = {
@@ -269,6 +285,7 @@
       clearKey: $('#clearKey'),
       systemMsg: $('#systemMsg'),
       prompt: $('#prompt'),
+      imageSize: $('#imageSize'),
       aspectRatio: $('#aspectRatio'),
       clearImages: $('#clearImages'),
       uploadImages: $('#uploadImages'),
@@ -290,7 +307,6 @@
     };
 
     const SYSTEM_MSG_KEY = 'image_gen_system_message';
-    const ASPECT_RATIO_KEY = 'image_gen_aspect_ratio';
 
     function loadProvider() {
       const saved = localStorage.getItem('image_gen_provider') || 'google';
@@ -322,24 +338,13 @@
       localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value);
     }
 
-    function loadAspectRatio() {
-      return localStorage.getItem(ASPECT_RATIO_KEY) || '';
-    }
-    function saveAspectRatio(value) {
-      if (!value) {
-        localStorage.removeItem(ASPECT_RATIO_KEY);
-        return;
-      }
-      localStorage.setItem(ASPECT_RATIO_KEY, value);
-    }
-
     function applyProviderUI() {
       const p = PROVIDERS[state.provider];
       els.apiKeyLabel.textContent = p.apiKeyLabel;
       els.apiKey.placeholder = p.apiKeyPlaceholder;
       els.apiKey.value = loadApiKeyForCurrentProvider();
       els.systemMsg.value = loadSystemMsg();
-      els.aspectRatio.value = loadAspectRatio();
+      // removed autosave loading for aspect ratio and size
       saveProvider();
       setStatus(`Using ${p.name} (${p.model}).`);
       clearError();
@@ -380,9 +385,6 @@
     els.clearInfoBtn.addEventListener('click', clearInfo);
 
     els.systemMsg.addEventListener('input', saveSystemMsg);
-    els.aspectRatio.addEventListener('change', () => {
-      saveAspectRatio(els.aspectRatio.value);
-    });
 
     els.prompt.addEventListener('paste', async (e) => {
       try {
@@ -416,7 +418,7 @@
           break;
         }
         if (file.size > state.maxBytes) {
-          setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)}MB): exceeds 32MB limit.`);
+          setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)}MB): exceeds 256MiB limit.`);
           continue;
         }
         const dataUrl = await readAsDataURL(file);
@@ -457,6 +459,7 @@
 
       const sysText = (els.systemMsg.value || '').trim();
       const aspectRatio = (els.aspectRatio.value || '').trim();
+      const imageSize = els.imageSize.value;
 
       const body = {
         contents: [{ role: 'user', parts }]
@@ -468,13 +471,10 @@
         };
       }
 
-      if (aspectRatio) {
-        body.generationConfig = {
-          imageConfig: {
-            aspectRatio
-          }
-        };
-      }
+      const config = {};
+      if (aspectRatio) config.aspectRatio = aspectRatio;
+      config.imageSize = imageSize;
+      body.generationConfig = { imageConfig: config, thinkingConfig: { includeThoughts: false, thinkingBudget: 65535 } };
 
       return {
         url: PROVIDERS.google.url(PROVIDERS.google.model),
@@ -495,6 +495,7 @@
 
       const sysText = (els.systemMsg.value || '').trim();
       const aspectRatio = (els.aspectRatio.value || '').trim();
+      const imageSize = els.imageSize.value;
 
       const messages = [];
       if (sysText) {
@@ -506,14 +507,14 @@
         model: PROVIDERS.openrouter.model,
         messages,
         modalities: ['image', 'text'],
+        reasoning: { exclude: true, max_tokens: 65535 },
         provider: { ignore: ['google-ai-studio'] }
       };
 
-      if (aspectRatio) {
-        payload.image_config = {
-          aspect_ratio: aspectRatio
-        };
-      }
+      const imgConfig = {};
+      if (aspectRatio) imgConfig.aspect_ratio = aspectRatio;
+      imgConfig.image_size = imageSize;
+      payload.image_config = imgConfig;
 
       return {
         url: PROVIDERS.openrouter.url(),
@@ -868,11 +869,6 @@
     els.apiKey.addEventListener('input', saveApiKey);
 
     loadProvider();
-    els.systemMsg.value = loadSystemMsg();
-    const savedAspect = loadAspectRatio();
-    if (savedAspect) {
-      els.aspectRatio.value = savedAspect;
-    }
   </script>
 </body>
 </html>
