@@ -15,6 +15,7 @@
             panel: '#18181b',
             border: '#27272a',
             accent: '#d4d4d8',
+            thought: '#0891b2',
           }
         }
       }
@@ -27,6 +28,20 @@
     }
     .select-wrapper select::-ms-expand {
       display: none;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 3px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #52525b;
     }
   </style>
 </head>
@@ -48,7 +63,7 @@
       <div class="space-y-2">
         <label for="endpoint" class="block text-sm text-zinc-300">Endpoint</label>
         <div class="select-wrapper relative">
-          <select id="endpoint" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
+          <select id="endpoint" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer">
             <option value="google">Google AI Studio - model: gemini-3-pro-image-preview</option>
             <option value="openrouter">OpenRouter - model: google/gemini-3-pro-image-preview</option>
           </select>
@@ -83,14 +98,14 @@
       <div class="space-y-2">
         <label for="prompt" class="block text-sm text-zinc-300">Prompt</label>
         <textarea id="prompt" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Describe the image you want. Tip: paste images here with Ctrl/Cmd+V to condition the generation."></textarea>
-        <p class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 5 images, 32 MB each.</p>
+        <p class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 32 images, 256 MiB each.</p>
       </div>
 
       <!-- Image Size -->
       <div class="space-y-2">
         <label for="imageSize" class="block text-sm text-zinc-300">Image Size</label>
         <div class="select-wrapper relative">
-          <select id="imageSize" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
+          <select id="imageSize" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer">
             <option value="1K">1K</option>
             <option value="2K">2K</option>
             <option value="4K">4K</option>
@@ -108,7 +123,7 @@
       <div class="space-y-2">
         <label for="aspectRatio" class="block text-sm text-zinc-300">Aspect Ratio</label>
         <div class="select-wrapper relative">
-          <select id="aspectRatio" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10">
+          <select id="aspectRatio" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer">
             <option value="">Auto</option>
             <option value="1:1">1:1 - Square</option>
             <option value="2:3">2:3 - Portrait</option>
@@ -142,10 +157,13 @@
         </div>
         <div id="thumbs" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
         <template id="thumbTpl">
-          <div class="relative group rounded-lg border border-border bg-black/20 h-32 flex items-center justify-center">
-            <img class="max-h-full max-w-full object-contain" />
-            <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Remove</button>
-            <div class="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-[10px] truncate"></div>
+          <div class="relative group rounded-lg border border-border bg-black/20 h-32 flex items-center justify-center overflow-hidden">
+            <img class="max-h-full max-w-full object-scale-down cursor-pointer" />
+            <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition z-10">Remove</button>
+            <div class="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 text-[10px] truncate flex flex-col" data-role="meta">
+                <span data-role="dims"></span>
+                <span data-role="info"></span>
+            </div>
           </div>
         </template>
       </div>
@@ -165,12 +183,18 @@
         <div id="results" class="grid sm:grid-cols-2 gap-4"></div>
 
         <template id="resultImageTpl">
-          <div class="rounded-lg overflow-hidden border border-border">
-            <div class="bg-black/30 h-80 sm:h-96 flex items-center justify-center">
-              <img class="max-h-full max-w-full object-contain" />
+          <div class="rounded-lg overflow-hidden border border-border relative flex flex-col aspect-square" data-role="card">
+            <!-- Thought Badge -->
+            <div class="hidden absolute top-2 left-2 bg-thought/90 text-white text-[10px] font-bold px-2 py-1 rounded z-10 shadow-lg uppercase tracking-wider pointer-events-none" data-role="thought-badge">Thought Process</div>
+            
+            <!-- Resolution Badge (Output) -->
+             <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-mono px-2 py-1 rounded z-10 pointer-events-none" data-role="res-badge"></div>
+
+            <div class="bg-black/30 flex-1 flex items-center justify-center relative min-h-0">
+              <img class="max-h-full max-w-full object-scale-down cursor-pointer" />
             </div>
-            <div class="flex items-center justify-between gap-2 p-2 bg-black/30">
-              <div class="text-xs text-zinc-400" data-role="mime"></div>
+            <div class="flex items-center justify-between gap-2 p-2 bg-black/30 z-10">
+              <div class="text-xs text-zinc-400 truncate" data-role="mime"></div>
               <div class="flex gap-2" data-role="actions">
                 <a data-role="download" class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs" download>Download</a>
                 <button data-role="copy" class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Copy image</button>
@@ -180,9 +204,17 @@
         </template>
 
         <template id="resultTextTpl">
-          <div class="rounded-lg overflow-hidden border border-border bg-black/20">
-            <div class="p-3 text-xs text-zinc-400 border-b border-border">Text</div>
-            <pre class="p-3 text-sm whitespace-pre-wrap break-words" data-role="text"></pre>
+          <div class="rounded-lg overflow-hidden border border-border bg-black/20 relative flex flex-col aspect-square" data-role="card">
+            <!-- Thought Header -->
+            <div class="hidden bg-thought/20 border-b border-thought/30 px-3 py-1 flex items-center gap-2" data-role="thought-header">
+              <div class="w-2 h-2 rounded-full bg-thought"></div>
+              <span class="text-[10px] font-bold text-thought uppercase tracking-wider">Reasoning</span>
+            </div>
+
+            <div class="p-3 text-xs text-zinc-400 border-b border-border flex justify-between items-center" data-role="text-label-container">
+              <span>Text</span>
+            </div>
+            <pre class="p-3 text-sm font-sans whitespace-pre-wrap break-words flex-1 overflow-auto custom-scroll" data-role="text"></pre>
             <div class="flex items-center justify-end gap-2 p-2 bg-black/30">
               <button data-role="copy-text" class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Copy text</button>
             </div>
@@ -220,9 +252,32 @@
     </section>
   </div>
 
+  <!-- Image Preview Modal -->
+  <div id="imagePreview" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-8 transition-opacity duration-100">
+    <img id="previewImg" class="max-w-full max-h-full object-scale-down rounded-lg shadow-2xl drop-shadow-2xl" />
+  </div>
+
   <script>
     const $ = (sel, ctx = document) => ctx.querySelector(sel);
     const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+    // --- Modal Logic ---
+    const previewModal = $('#imagePreview');
+    const previewImg = $('#previewImg');
+
+    function openPreview(src) {
+      if(!src) return;
+      previewImg.src = src;
+      previewModal.classList.remove('hidden');
+    }
+
+    function closePreview() {
+      previewModal.classList.add('hidden');
+      setTimeout(() => { if(previewModal.classList.contains('hidden')) previewImg.src = ''; }, 100);
+    }
+
+    previewModal.addEventListener('click', closePreview);
+    // -------------------
 
     const PROVIDERS = {
       google: {
@@ -344,7 +399,6 @@
       els.apiKey.placeholder = p.apiKeyPlaceholder;
       els.apiKey.value = loadApiKeyForCurrentProvider();
       els.systemMsg.value = loadSystemMsg();
-      // removed autosave loading for aspect ratio and size
       saveProvider();
       setStatus(`Using ${p.name} (${p.model}).`);
       clearError();
@@ -418,13 +472,32 @@
           break;
         }
         if (file.size > state.maxBytes) {
-          setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)}MB): exceeds 256MiB limit.`);
+          setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)} MiB): exceeds 256 MiB limit.`);
           continue;
         }
         const dataUrl = await readAsDataURL(file);
+
+        let width = 0;
+        let height = 0;
+        try {
+            const imgObj = await loadImageFromDataUrl(dataUrl);
+            width = imgObj.naturalWidth;
+            height = imgObj.naturalHeight;
+        } catch(e) {
+            console.warn("Could not determine image dimensions", e);
+        }
+
         const base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
         const name = file.name || `upload-${Date.now()}`;
-        state.images.push({ mime: file.type || 'image/png', base64, name, size: file.size, dataUrl });
+        state.images.push({ 
+            mime: file.type || 'image/png', 
+            base64, 
+            name, 
+            size: file.size, 
+            dataUrl,
+            width,
+            height
+        });
       }
 
       renderThumbs();
@@ -437,8 +510,19 @@
         const imgEl = $('img', node);
         imgEl.src = img.dataUrl;
         imgEl.alt = img.name || 'Pasted image';
-        $('div:last-child', node).textContent = `${img.mime} • ${(img.size/1024).toFixed(0)} KB`;
-        $('button', node).addEventListener('click', () => {
+        
+        // Attach preview click
+        imgEl.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent any parent clicks if they existed
+            openPreview(img.dataUrl);
+        });
+
+        const dimText = (img.width && img.height) ? `${img.width}x${img.height}` : 'Unknown';
+        $('[data-role="dims"]', node).textContent = dimText;
+        $('[data-role="info"]', node).textContent = `${img.mime.split('/')[1].toUpperCase()} - ${(img.size/1024).toFixed(0)} KiB`;
+
+        $('button', node).addEventListener('click', (e) => {
+          e.stopPropagation(); // Don't trigger preview
           state.images.splice(idx, 1);
           renderThumbs();
         });
@@ -474,7 +558,7 @@
       const config = {};
       if (aspectRatio) config.aspectRatio = aspectRatio;
       config.imageSize = imageSize;
-      body.generationConfig = { imageConfig: config, thinkingConfig: { includeThoughts: false, thinkingBudget: 65535 } };
+      body.generationConfig = { imageConfig: config, thinkingConfig: { includeThoughts: true, thinkingBudget: 65535 } };
 
       return {
         url: PROVIDERS.google.url(PROVIDERS.google.model),
@@ -586,16 +670,23 @@
           }
         }
 
-        renderResults(structured.items);
+        await renderResults(structured.items);
 
         const info = p.info(data);
         if (Object.keys(info).length) showInfo(info);
 
         const counts = structured.items.reduce((acc, it) => {
-          acc[it.kind] = (acc[it.kind] || 0) + 1;
+          const type = it.isThought ? 'thought' : it.kind;
+          acc[type] = (acc[type] || 0) + 1;
           return acc;
         }, {});
-        setStatus(`Generated ${counts.image || 0} image(s) and ${counts.text || 0} text part(s).`);
+
+        let statusStr = 'Generated: ';
+        const parts = [];
+        if (counts.image) parts.push(`${counts.image} image(s)`);
+        if (counts.text) parts.push(`${counts.text} text(s)`);
+        if (counts.thought) parts.push(`${counts.thought} thought(s)`);
+        setStatus(statusStr + (parts.join(', ') || 'nothing'));
       } catch (err) {
         showError(err?.message || String(err));
         setStatus('Error occurred.');
@@ -611,15 +702,13 @@
       for (const cand of candidates) {
         const parts = Array.isArray(cand?.content?.parts) ? cand.content.parts : [];
         for (const p of parts) {
+          const isThought = !!p.thought;
           if (typeof p?.text === 'string') {
             const t = p.text.trim();
-            if (t && t !== '`') items.push({ kind: 'text', text: t });
+            if (t && t !== '`') items.push({ kind: 'text', text: t, isThought });
           }
           if (p?.inlineData?.data && (p?.inlineData?.mimeType || '').startsWith('image/')) {
-            items.push({ kind: 'image', mime: p.inlineData.mimeType, base64: p.inlineData.data });
-          }
-          if (p?.inline_data?.data && (p?.inline_data?.mime_type || '').startsWith('image/')) {
-            items.push({ kind: 'image', mime: p.inline_data.mime_type, base64: p.inline_data.data });
+            items.push({ kind: 'image', mime: p.inlineData.mimeType, base64: p.inlineData.data, isThought });
           }
         }
       }
@@ -633,14 +722,14 @@
         const msg = ch?.message || {};
         if (typeof msg.content === 'string') {
           const t = msg.content.trim();
-          if (t) items.push({ kind: 'text', text: t });
+          if (t) items.push({ kind: 'text', text: t, isThought: false });
         }
         const images = Array.isArray(msg?.images) ? msg.images : [];
         for (const im of images) {
           const url = im?.image_url?.url || im?.url || '';
           if (typeof url === 'string' && url.startsWith('data:image')) {
             const parsed = parseDataUrl(url);
-            if (parsed.base64) items.push({ kind: 'image', mime: parsed.mime, base64: parsed.base64 });
+            if (parsed.base64) items.push({ kind: 'image', mime: parsed.mime, base64: parsed.base64, isThought: false });
           }
         }
       }
@@ -664,10 +753,12 @@
       return 'img';
     }
 
-    function renderResults(items) {
+    async function renderResults(items) {
       els.results.innerHTML = '';
 
       for (const it of items) {
+        const isThought = !!it.isThought;
+
         if (it.kind === 'image') {
           try {
             const mime = it.mime || 'image/png';
@@ -675,40 +766,49 @@
             const node = els.resultImageTpl?.content?.firstElementChild?.cloneNode(true);
             if (!node) throw new Error('Image template not found in DOM.');
 
+            const card = node; 
+            if (isThought) {
+                card.classList.remove('border-border');
+                card.classList.add('border-thought/50', 'bg-thought/5');
+                const badge = node.querySelector('[data-role="thought-badge"]');
+                if (badge) badge.classList.remove('hidden');
+            }
+
             const imgEl = node.querySelector('img');
+
+            let width = 0;
+            let height = 0;
+            let sizeBytes = 0;
+
+            try {
+                const padding = (it.base64.endsWith("==")) ? 2 : (it.base64.endsWith("=") ? 1 : 0);
+                sizeBytes = (it.base64.length * (3/4)) - padding;
+
+                const imgObj = await loadImageFromDataUrl(dataUrl);
+                width = imgObj.naturalWidth;
+                height = imgObj.naturalHeight;
+            } catch(e) { console.warn("Failed to get result image dims", e); }
+
             if (imgEl) {
               imgEl.src = dataUrl;
-              imgEl.alt = 'Generated image';
+              imgEl.alt = isThought ? 'Thought Process Image' : 'Generated image';
+              imgEl.addEventListener('click', () => openPreview(dataUrl));
             }
 
             const mimeEl = node.querySelector('[data-role="mime"]');
-            if (mimeEl) mimeEl.textContent = mime;
+            const sizeKb = (sizeBytes / 1024).toFixed(0);
+            if (mimeEl) mimeEl.textContent = `${mime.split('/')[1].toUpperCase()} - ${sizeKb} KiB`;
+
+            const resBadge = node.querySelector('[data-role="res-badge"]');
+            if (resBadge && width && height) {
+                resBadge.textContent = `${width}x${height}`;
+            }
 
             let a = node.querySelector('[data-role="download"]');
-            if (!a) {
-              const actions = node.querySelector('[data-role="actions"]') || document.createElement('div');
-              a = document.createElement('a');
-              a.setAttribute('data-role', 'download');
-              a.className = 'px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs';
-              a.textContent = 'Download';
-              actions.appendChild(a);
-              if (!node.contains(actions)) node.appendChild(actions);
-            }
             a.href = dataUrl;
-            a.download = `gemini-image-${Date.now()}.${extFromMime(mime)}`;
+            a.download = `${isThought ? 'thought' : 'gemini'}-image-${Date.now()}.${extFromMime(mime)}`;
 
             let copyBtn = node.querySelector('[data-role="copy"]');
-            if (!copyBtn) {
-              const actions = node.querySelector('[data-role="actions"]') || document.createElement('div');
-              copyBtn = document.createElement('button');
-              copyBtn.setAttribute('data-role', 'copy');
-              copyBtn.className = 'px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs';
-              copyBtn.textContent = 'Copy image';
-              actions.appendChild(copyBtn);
-              if (!node.contains(actions)) node.appendChild(actions);
-            } else {
-              copyBtn.textContent = 'Copy image';
-            }
             copyBtn.addEventListener('click', async () => {
               try {
                 const msg = await copyImageToClipboard(dataUrl, mime);
@@ -732,8 +832,25 @@
             showError('Text template not found in DOM.');
             continue;
           }
+
+          const card = node;
+          if (isThought) {
+            card.classList.remove('border-border');
+            card.classList.add('border-thought/50');
+
+            const header = node.querySelector('[data-role="thought-header"]');
+            if (header) header.classList.remove('hidden');
+
+            const labelContainer = node.querySelector('[data-role="text-label-container"]');
+            if (labelContainer) labelContainer.classList.add('hidden');
+          }
+
           const pre = node.querySelector('[data-role="text"]');
-          if (pre) pre.textContent = txt;
+          if (pre) {
+            pre.textContent = txt;
+            if (isThought) pre.classList.add('text-zinc-300', 'font-sans', 'text-xs');
+          }
+
           const copyBtn = node.querySelector('[data-role="copy-text"]');
           if (copyBtn) {
             copyBtn.addEventListener('click', async () => {
