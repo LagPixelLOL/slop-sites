@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Perlin WebGPU</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; }
+    canvas { width: 100dvw; height: 100dvh; display: block; }
+    #hud {
+      position: fixed; left: 16px; top: 16px;
+      font: 1rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #ddd; background: rgba(0,0,0,0.55);
+      padding: 10px 10px; border-radius: 8px;
+      max-width: 520px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="hud">
+    Perlin WebGPU
+  </div>
+
+  <script type="module">
+    const canvas = document.getElementById("c");
+
+    if (!navigator.gpu) {
+      document.getElementById("hud").textContent = "WebGPU not supported in this browser.";
+      throw new Error("WebGPU not supported");
+    }
+
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) throw new Error("No GPU adapter found");
+    const device = await adapter.requestDevice();
+
+    const context = canvas.getContext("webgpu");
+    const format = navigator.gpu.getPreferredCanvasFormat();
+
+    // Uniform layout: 2 vec4<f32> = 32 bytes
+    // params0: (width, height, time, scale)
+    // params1: (speedZ, 0, 0, 0)
+    const uniformBuffer = device.createBuffer({
+      size: 32,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    const shaderCode = /* wgsl */`
+struct Uniforms {
+  params0 : vec4<f32>,
+  params1 : vec4<f32>,
+};
+@group(0) @binding(0) var<uniform> U : Uniforms;
+
+fn fade(t: f32) -> f32 {
+  // 6t^5 - 15t^4 + 10t^3
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+fn lerp(a: f32, b: f32, t: f32) -> f32 { return a + t * (b - a); }
+
+fn hash3(p: vec3<i32>) -> u32 {
+  // Deterministic integer hash for 3D lattice points
+  let x = u32(p.x);
+  let y = u32(p.y);
+  let z = u32(p.z);
+  var h = x * 374761393u + y * 668265263u + z * 2246822519u;
+  h = (h ^ (h >> 13u)) * 1274126177u;
+  h = h ^ (h >> 16u);
+  return h;
+}
+
+fn grad3(h: u32) -> vec3<f32> {
+  // 12 classic-ish gradient directions
+  let idx = i32(h % 12u);
+  switch idx {
+    case 0:  { return vec3<f32>( 1.0,  1.0,  0.0); }
+    case 1:  { return vec3<f32>(-1.0,  1.0,  0.0); }
+    case 2:  { return vec3<f32>( 1.0, -1.0,  0.0); }
+    case 3:  { return vec3<f32>(-1.0, -1.0,  0.0); }
+    case 4:  { return vec3<f32>( 1.0,  0.0,  1.0); }
+    case 5:  { return vec3<f32>(-1.0,  0.0,  1.0); }
+    case 6:  { return vec3<f32>( 1.0,  0.0, -1.0); }
+    case 7:  { return vec3<f32>(-1.0,  0.0, -1.0); }
+    case 8:  { return vec3<f32>( 0.0,  1.0,  1.0); }
+    case 9:  { return vec3<f32>( 0.0, -1.0,  1.0); }
+    case 10: { return vec3<f32>( 0.0,  1.0, -1.0); }
+    default: { return vec3<f32>( 0.0, -1.0, -1.0); }
+  }
+}
+
+fn perlin3(p: vec3<f32>) -> f32 {
+  let pi = vec3<i32>(floor(p));
+  let pf = fract(p);
+
+  let u = fade(pf.x);
+  let v = fade(pf.y);
+  let w = fade(pf.z);
+
+  // Dot products at 8 corners
+  let g000 = grad3(hash3(pi + vec3<i32>(0,0,0)));
+  let g100 = grad3(hash3(pi + vec3<i32>(1,0,0)));
+  let g010 = grad3(hash3(pi + vec3<i32>(0,1,0)));
+  let g110 = grad3(hash3(pi + vec3<i32>(1,1,0)));
+  let g001 = grad3(hash3(pi + vec3<i32>(0,0,1)));
+  let g101 = grad3(hash3(pi + vec3<i32>(1,0,1)));
+  let g011 = grad3(hash3(pi + vec3<i32>(0,1,1)));
+  let g111 = grad3(hash3(pi + vec3<i32>(1,1,1)));
+
+  let d000 = pf - vec3<f32>(0.0,0.0,0.0);
+  let d100 = pf - vec3<f32>(1.0,0.0,0.0);
+  let d010 = pf - vec3<f32>(0.0,1.0,0.0);
+  let d110 = pf - vec3<f32>(1.0,1.0,0.0);
+  let d001 = pf - vec3<f32>(0.0,0.0,1.0);
+  let d101 = pf - vec3<f32>(1.0,0.0,1.0);
+  let d011 = pf - vec3<f32>(0.0,1.0,1.0);
+  let d111 = pf - vec3<f32>(1.0,1.0,1.0);
+
+  let n000 = dot(g000, d000);
+  let n100 = dot(g100, d100);
+  let n010 = dot(g010, d010);
+  let n110 = dot(g110, d110);
+  let n001 = dot(g001, d001);
+  let n101 = dot(g101, d101);
+  let n011 = dot(g011, d011);
+  let n111 = dot(g111, d111);
+
+  let nx00 = lerp(n000, n100, u);
+  let nx10 = lerp(n010, n110, u);
+  let nx01 = lerp(n001, n101, u);
+  let nx11 = lerp(n011, n111, u);
+
+  let nxy0 = lerp(nx00, nx10, v);
+  let nxy1 = lerp(nx01, nx11, v);
+
+  let nxyz = lerp(nxy0, nxy1, w);
+
+  // Scale to roughly [-1,1] and clamp
+  let scaled = nxyz * 1.2;
+  return clamp(scaled, -1.0, 1.0);
+}
+
+struct VSOut {
+  @builtin(position) pos : vec4<f32>,
+};
+
+@vertex
+fn vsMain(@builtin(vertex_index) vid: u32) -> VSOut {
+  // Fullscreen triangle
+  var p = array<vec2<f32>, 3>(
+    vec2<f32>(-1.0, -1.0),
+    vec2<f32>( 3.0, -1.0),
+    vec2<f32>(-1.0,  3.0)
+  );
+  var out: VSOut;
+  out.pos = vec4<f32>(p[vid], 0.0, 1.0);
+  return out;
+}
+
+fn fadePrime(t: f32) -> f32 {
+  return 30.0 * t * t * (t - 1.0) * (t - 1.0);
+}
+
+@fragment
+fn fsMain(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
+  let width = U.params0.x;
+  let height = U.params0.y;
+  let time = U.params0.z;
+  let scale = U.params0.w;
+
+  let speedZ = U.params1.x;
+
+  // Aspect-correct + centered coordinates.
+  let minDim = min(width, height);
+  let xy = (fragPos.xy - 0.5 * vec2<f32>(width, height)) / minDim + 42;
+
+  let phase = perlin3(vec3<f32>(xy * (scale * 0.15) + vec2<f32>(5.2, -3.7), 0.0));
+  let z = time * speedZ + phase * 3.5;
+  let p = vec3<f32>(xy * scale + vec2<f32>(17.3, -9.1), z);
+
+  let n = perlin3(p);
+
+  let eps = 0.02;
+  let nPlus  = perlin3(p + vec3<f32>(0.0, 0.0, eps));
+  let nMinus = perlin3(p - vec3<f32>(0.0, 0.0, eps));
+  let dndz = (nPlus - nMinus) / (2.0 * eps);
+
+  let env = max(fadePrime(fract(p.z)), 1e-3);
+  let v = clamp(abs(dndz) / env * 0.1, 0.0, 1.0);
+  return vec4<f32>(vec3<f32>(v), 1.0);
+}
+`;
+
+    const module = device.createShaderModule({ code: shaderCode });
+
+    const bindGroupLayout = device.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
+      ],
+    });
+
+    const pipeline = device.createRenderPipeline({
+      layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+      vertex: { module, entryPoint: "vsMain" },
+      fragment: { module, entryPoint: "fsMain", targets: [{ format }] },
+      primitive: { topology: "triangle-list" },
+    });
+
+    const bindGroup = device.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+    });
+
+    function configure() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      context.configure({ device, format, alphaMode: "opaque" });
+    }
+
+    window.addEventListener("resize", configure);
+    configure();
+
+    const scale = 8.0; // spatial frequency
+    const speedZ = 0.25; // how fast the pattern boils
+
+    function frame(tMs) {
+      configure();
+
+      const t = tMs * 0.001;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      device.queue.writeBuffer(
+        uniformBuffer, 0,
+        new Float32Array([
+          w, h, t, scale,
+          speedZ, 0, 0, 0
+        ])
+      );
+
+      const encoder = device.createCommandEncoder();
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [{
+          view: context.getCurrentTexture().createView(),
+          loadOp: "clear",
+          storeOp: "store",
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+        }],
+      });
+
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.draw(3);
+      pass.end();
+
+      device.queue.submit([encoder.finish()]);
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
