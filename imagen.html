@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Gemini Image Generator</title>
+  <title>API Image Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -22,40 +22,23 @@
     }
   </script>
   <style>
-    textarea {
-      resize: none !important;
-      overflow: auto;
-    }
-    .select-wrapper select::-ms-expand {
-      display: none;
-    }
-    .custom-scroll::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    .custom-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .custom-scroll::-webkit-scrollbar-thumb {
-      background: #3f3f46;
-      border-radius: 3px;
-    }
-    .custom-scroll::-webkit-scrollbar-thumb:hover {
-      background: #52525b;
-    }
+    textarea { resize: none !important; overflow: auto; }
+    .select-wrapper select::-ms-expand { display: none; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #52525b; }
   </style>
 </head>
+
 <body class="bg-surface text-zinc-100 min-h-screen">
   <div class="max-w-4xl mx-auto px-4 py-6">
     <header class="flex items-start sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-semibold">Gemini Image Generator</h1>
+        <h1 class="text-2xl font-semibold">API Image Generator</h1>
         <p class="text-sm text-zinc-400 mt-1">Type a prompt. Paste images directly into the prompt box (Ctrl/Cmd+V). Your API key is saved locally in your browser only.</p>
       </div>
-      <div class="flex gap-3 items-center">
-        <a class="text-xs text-zinc-400 hover:text-zinc-200 underline" href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noreferrer">Google Docs</a>
-        <a class="text-xs text-zinc-400 hover:text-zinc-200 underline" href="https://openrouter.ai/docs/features/multimodal/image-generation" target="_blank" rel="noreferrer">OpenRouter Docs</a>
-      </div>
+      <div class="flex gap-3 items-center"></div>
     </header>
 
     <section class="bg-panel border border-border rounded-xl p-4 sm:p-6 space-y-5">
@@ -66,6 +49,7 @@
           <select id="endpoint" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer">
             <option value="google">Google AI Studio - model: gemini-3-pro-image-preview</option>
             <option value="openrouter">OpenRouter - model: google/gemini-3-pro-image-preview</option>
+            <option value="openai">OpenAI - model: gpt-image-1.5</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -91,32 +75,28 @@
       <div class="space-y-2">
         <label for="systemMsg" class="block text-sm text-zinc-300">System Message</label>
         <textarea id="systemMsg" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Optional: overarching instructions for the model."></textarea>
-        <p class="text-xs text-zinc-500">System message to instruct the model.</p>
+        <p id="systemMsgHelp" class="text-xs text-zinc-500">System message to instruct the model.</p>
       </div>
 
       <!-- Prompt -->
       <div class="space-y-2">
         <label for="prompt" class="block text-sm text-zinc-300">Prompt</label>
         <textarea id="prompt" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Describe the image you want. Tip: paste images here with Ctrl/Cmd+V to condition the generation."></textarea>
-        <p class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 32 images, 256 MiB each.</p>
+        <p id="promptHelp" class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 32 images, 256 MiB each.</p>
       </div>
 
-      <!-- Image Size -->
+      <!-- Image Size / Quality -->
       <div class="space-y-2">
-        <label for="imageSize" class="block text-sm text-zinc-300">Image Size</label>
+        <label id="imageSizeLabel" for="imageSize" class="block text-sm text-zinc-300">Image Size</label>
         <div class="select-wrapper relative">
-          <select id="imageSize" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer">
-            <option value="1K">1K</option>
-            <option value="2K">2K</option>
-            <option value="4K">4K</option>
-          </select>
+          <select id="imageSize" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer"></select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
             </svg>
           </span>
         </div>
-        <p class="text-xs text-zinc-500">Select target resolution.</p>
+        <p id="imageSizeHelp" class="text-xs text-zinc-500">Select target resolution.</p>
       </div>
 
       <!-- Aspect Ratio -->
@@ -142,7 +122,7 @@
             </svg>
           </span>
         </div>
-        <p class="text-xs text-zinc-500">Choose a target aspect ratio. "Auto" keeps the provider default.</p>
+        <p id="aspectRatioHelp" class="text-xs text-zinc-500">Choose a target aspect ratio. "Auto" keeps the provider default.</p>
       </div>
 
       <!-- Pasted images -->
@@ -161,8 +141,8 @@
             <img class="max-h-full max-w-full object-scale-down cursor-pointer" />
             <button class="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition z-10">Remove</button>
             <div class="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 text-[10px] truncate flex flex-col" data-role="meta">
-                <span data-role="dims"></span>
-                <span data-role="info"></span>
+              <span data-role="dims"></span>
+              <span data-role="info"></span>
             </div>
           </div>
         </template>
@@ -186,9 +166,9 @@
           <div class="rounded-lg overflow-hidden border border-border relative flex flex-col aspect-square" data-role="card">
             <!-- Thought Badge -->
             <div class="hidden absolute top-2 left-2 bg-thought/90 text-white text-[10px] font-bold px-2 py-1 rounded z-10 shadow-lg uppercase tracking-wider pointer-events-none" data-role="thought-badge">Thought Process</div>
-            
+
             <!-- Resolution Badge (Output) -->
-             <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-mono px-2 py-1 rounded z-10 pointer-events-none" data-role="res-badge"></div>
+            <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-mono px-2 py-1 rounded z-10 pointer-events-none" data-role="res-badge"></div>
 
             <div class="bg-black/30 flex-1 flex items-center justify-center relative min-h-0">
               <img class="max-h-full max-w-full object-scale-down cursor-pointer" />
@@ -264,72 +244,29 @@
     // --- Modal Logic ---
     const previewModal = $('#imagePreview');
     const previewImg = $('#previewImg');
-
     function openPreview(src) {
       if(!src) return;
       previewImg.src = src;
       previewModal.classList.remove('hidden');
     }
-
     function closePreview() {
       previewModal.classList.add('hidden');
       setTimeout(() => { if(previewModal.classList.contains('hidden')) previewImg.src = ''; }, 100);
     }
-
     previewModal.addEventListener('click', closePreview);
     // -------------------
-
-    const PROVIDERS = {
-      google: {
-        id: 'google',
-        name: 'Google AI Studio',
-        model: 'gemini-3-pro-image-preview',
-        apiKeyStorage: 'gemini_api_key',
-        apiKeyLabel: 'Google API Key',
-        apiKeyPlaceholder: 'AIzaSy...',
-        buildRequest: buildGoogleRequest,
-        parseResponse: parseGoogleResponse,
-        url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        headers: (apiKey) => ({
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        }),
-        info: (data) => {
-          const info = {};
-          if (data?.promptFeedback) info.promptFeedback = data.promptFeedback;
-          if (data?.usageMetadata) info.usageMetadata = data.usageMetadata;
-          return info;
-        }
-      },
-      openrouter: {
-        id: 'openrouter',
-        name: 'OpenRouter',
-        model: 'google/gemini-3-pro-image-preview',
-        apiKeyStorage: 'openrouter_api_key',
-        apiKeyLabel: 'OpenRouter API Key',
-        apiKeyPlaceholder: 'sk-or-v1-...',
-        buildRequest: buildOpenRouterRequest,
-        parseResponse: parseOpenRouterResponse,
-        url: () => 'https://openrouter.ai/api/v1/chat/completions',
-        headers: (apiKey) => ({
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        }),
-        info: (data) => {
-          const info = {};
-          if (data?.id) info.id = data.id;
-          if (data?.model) info.model = data.model;
-          if (data?.usage) info.usage = data.usage;
-          return info;
-        }
-      }
-    };
 
     const state = {
       provider: 'google',
       images: [],
       maxImages: 32,
       maxBytes: 256 * 1024 * 1024,
+      ui: {
+        // in-memory only (kept while the tab is open; NOT persisted across refresh)
+        imageSizeMode: null,     // 'size' | 'quality'
+        savedSize: '1K',         // shared by Google + OpenRouter
+        savedQuality: 'low'      // OpenAI only
+      }
     };
 
     const els = {
@@ -339,9 +276,14 @@
       toggleKey: $('#toggleKey'),
       clearKey: $('#clearKey'),
       systemMsg: $('#systemMsg'),
+      systemMsgHelp: $('#systemMsgHelp'),
       prompt: $('#prompt'),
+      promptHelp: $('#promptHelp'),
+      imageSizeLabel: $('#imageSizeLabel'),
       imageSize: $('#imageSize'),
+      imageSizeHelp: $('#imageSizeHelp'),
       aspectRatio: $('#aspectRatio'),
+      aspectRatioHelp: $('#aspectRatioHelp'),
       clearImages: $('#clearImages'),
       uploadImages: $('#uploadImages'),
       imageInput: $('#imageInput'),
@@ -363,15 +305,114 @@
 
     const SYSTEM_MSG_KEY = 'image_gen_system_message';
 
+    function setStatus(msg) { els.status.textContent = msg || ''; }
+    function showSpinner(on) { els.spinner.classList.toggle('hidden', !on); }
+
+    function showError(objOrText) {
+      els.errorPanel.classList.remove('hidden');
+      try {
+        els.errorPre.textContent = typeof objOrText === 'string'
+          ? objOrText
+          : JSON.stringify(objOrText, null, 2);
+      } catch {
+        els.errorPre.textContent = String(objOrText);
+      }
+    }
+    function clearError() {
+      els.errorPanel.classList.add('hidden');
+      els.errorPre.textContent = '';
+    }
+    function showInfo(obj) {
+      els.infoPanel.classList.remove('hidden');
+      try { els.infoPre.textContent = JSON.stringify(obj, null, 2); }
+      catch { els.infoPre.textContent = String(obj); }
+    }
+    function clearInfo() {
+      els.infoPanel.classList.add('hidden');
+      els.infoPre.textContent = '';
+    }
+    els.clearInfoBtn.addEventListener('click', clearInfo);
+
+    function loadSystemMsg() { return localStorage.getItem(SYSTEM_MSG_KEY) || ''; }
+    function saveSystemMsg() { localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value); }
+    els.systemMsg.addEventListener('input', saveSystemMsg);
+
+    const PROVIDERS = {
+      google: {
+        id: 'google',
+        name: 'Google AI Studio',
+        model: 'gemini-3-pro-image-preview',
+        apiKeyStorage: 'gemini_api_key',
+        apiKeyLabel: 'Google API Key',
+        apiKeyPlaceholder: 'AIzaSy...',
+        buildRequest: buildGoogleRequest,
+        parseResponse: parseGoogleResponse,
+        url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        headers: (apiKey) => ({ 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }),
+        info: (data) => {
+          const info = {};
+          if (data?.promptFeedback) info.promptFeedback = data.promptFeedback;
+          if (data?.usageMetadata) info.usageMetadata = data.usageMetadata;
+          return info;
+        }
+      },
+      openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        model: 'google/gemini-3-pro-image-preview',
+        apiKeyStorage: 'openrouter_api_key',
+        apiKeyLabel: 'OpenRouter API Key',
+        apiKeyPlaceholder: 'sk-or-v1-...',
+        buildRequest: buildOpenRouterRequest,
+        parseResponse: parseOpenRouterResponse,
+        url: () => 'https://openrouter.ai/api/v1/chat/completions',
+        headers: (apiKey) => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }),
+        info: (data) => {
+          const info = {};
+          if (data?.id) info.id = data.id;
+          if (data?.model) info.model = data.model;
+          if (data?.usage) info.usage = data.usage;
+          return info;
+        }
+      },
+      openai: {
+        id: 'openai',
+        name: 'OpenAI',
+        model: 'gpt-image-1.5',
+        apiKeyStorage: 'openai_api_key',
+        apiKeyLabel: 'OpenAI API Key',
+        apiKeyPlaceholder: 'sk-...',
+        buildRequest: buildOpenAIRequest,
+        parseResponse: parseOpenAIResponse,
+        url: (mode) => (mode === 'edits')
+          ? 'https://api.openai.com/v1/images/edits'
+          : 'https://api.openai.com/v1/images/generations',
+        headers: (apiKey, isForm = false) => {
+          const h = { 'Authorization': `Bearer ${apiKey}` };
+          if (!isForm) h['Content-Type'] = 'application/json';
+          return h;
+        },
+        info: (data) => {
+          const info = {};
+          if (data?.created) info.created = data.created;
+          if (data?.background) info.background = data.background;
+          if (data?.output_format) info.output_format = data.output_format;
+          if (data?.quality) info.quality = data.quality;
+          if (data?.size) info.size = data.size;
+          if (data?.usage) info.usage = data.usage;
+          return info;
+        }
+      }
+    };
+
     function loadProvider() {
       const saved = localStorage.getItem('image_gen_provider') || 'google';
       state.provider = PROVIDERS[saved] ? saved : 'google';
       els.endpoint.value = state.provider;
       applyProviderUI();
     }
-    function saveProvider() {
-      localStorage.setItem('image_gen_provider', state.provider);
-    }
+    function saveProvider() { localStorage.setItem('image_gen_provider', state.provider); }
+
     function loadApiKeyForCurrentProvider() {
       const storageKey = PROVIDERS[state.provider].apiKeyStorage;
       return localStorage.getItem(storageKey) || '';
@@ -386,11 +427,67 @@
       els.apiKey.value = '';
     }
 
-    function loadSystemMsg() {
-      return localStorage.getItem(SYSTEM_MSG_KEY) || '';
+    function setSelectOptions(selectEl, options) {
+      selectEl.innerHTML = '';
+      for (const opt of options) {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        selectEl.appendChild(o);
+      }
     }
-    function saveSystemMsg() {
-      localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value);
+
+    function saveCurrentImageSizeSelection() {
+      if (state.ui.imageSizeMode === 'size') state.ui.savedSize = els.imageSize.value || state.ui.savedSize;
+      if (state.ui.imageSizeMode === 'quality') state.ui.savedQuality = els.imageSize.value || state.ui.savedQuality;
+    }
+
+    function ensureImageSizeMode(mode) {
+      if (state.ui.imageSizeMode === mode) return;
+
+      // preserve current selection when switching modes (within this page session)
+      if (state.ui.imageSizeMode) saveCurrentImageSizeSelection();
+
+      state.ui.imageSizeMode = mode;
+
+      if (mode === 'size') {
+        els.imageSizeLabel.textContent = 'Image Size';
+        els.imageSizeHelp.textContent = 'Select target resolution.';
+        setSelectOptions(els.imageSize, [
+          { value: '1K', label: '1K' },
+          { value: '2K', label: '2K' },
+          { value: '4K', label: '4K' },
+        ]);
+        const valid = new Set(['1K', '2K', '4K']);
+        els.imageSize.value = valid.has(state.ui.savedSize) ? state.ui.savedSize : '1K';
+      } else {
+        els.imageSizeLabel.textContent = 'Image Quality';
+        els.imageSizeHelp.textContent = 'Select output quality.';
+        setSelectOptions(els.imageSize, [
+          { value: 'low', label: 'low' },
+          { value: 'medium', label: 'medium' },
+          { value: 'high', label: 'high' },
+        ]);
+        const valid = new Set(['low', 'medium', 'high']);
+        els.imageSize.value = valid.has(state.ui.savedQuality) ? state.ui.savedQuality : 'low';
+      }
+    }
+
+    function applyProviderConstraints() {
+      const isOpenAI = state.provider === 'openai';
+
+      els.systemMsgHelp.textContent = isOpenAI
+        ? 'System message to instruct the model. (For OpenAI Images, this is prepended to the prompt.)'
+        : 'System message to instruct the model.';
+
+      ensureImageSizeMode(isOpenAI ? 'quality' : 'size');
+
+      // Grey out unsupported aspect ratios for OpenAI (keep the same help text)
+      const allowedAspect = new Set(['', '1:1', '3:2', '2:3']);
+      $$('option', els.aspectRatio).forEach(opt => {
+        opt.disabled = isOpenAI && !allowedAspect.has(opt.value);
+      });
+      if (isOpenAI && !allowedAspect.has(els.aspectRatio.value)) els.aspectRatio.value = '';
     }
 
     function applyProviderUI() {
@@ -399,58 +496,26 @@
       els.apiKey.placeholder = p.apiKeyPlaceholder;
       els.apiKey.value = loadApiKeyForCurrentProvider();
       els.systemMsg.value = loadSystemMsg();
+
       saveProvider();
+      applyProviderConstraints();
+
       setStatus(`Using ${p.name} (${p.model}).`);
       clearError();
       clearInfo();
     }
 
-    function setStatus(msg) { els.status.textContent = msg || ''; }
-    function showSpinner(on) { els.spinner.classList.toggle('hidden', !on); }
-    function showError(objOrText) {
-      els.errorPanel.classList.remove('hidden');
-      try {
-        if (typeof objOrText === 'string') {
-          els.errorPre.textContent = objOrText;
-        } else {
-          els.errorPre.textContent = JSON.stringify(objOrText, null, 2);
-        }
-      } catch {
-        els.errorPre.textContent = String(objOrText);
-      }
-    }
-    function clearError() {
-      els.errorPanel.classList.add('hidden');
-      els.errorPre.textContent = '';
-    }
-    function showInfo(obj) {
-      els.infoPanel.classList.remove('hidden');
-      try {
-        els.infoPre.textContent = JSON.stringify(obj, null, 2);
-      } catch {
-        els.infoPre.textContent = String(obj);
-      }
-    }
-    function clearInfo() {
-      els.infoPanel.classList.add('hidden');
-      els.infoPre.textContent = '';
-    }
+    // Keep selection synced in-memory while staying on the page (NOT across refresh)
+    els.imageSize.addEventListener('change', saveCurrentImageSizeSelection);
 
-    els.clearInfoBtn.addEventListener('click', clearInfo);
-
-    els.systemMsg.addEventListener('input', saveSystemMsg);
-
+    // --- Paste & uploads ---
     els.prompt.addEventListener('paste', async (e) => {
       try {
         const items = e.clipboardData?.items || [];
         const imageItems = [...items].filter(it => it.kind === 'file' && it.type.startsWith('image/'));
         if (imageItems.length === 0) return;
         e.preventDefault();
-
-        const files = imageItems
-          .map(it => it.getAsFile())
-          .filter((file) => !!file);
-
+        const files = imageItems.map(it => it.getAsFile()).filter(Boolean);
         await handleFiles(files);
       } catch (err) {
         showError(err?.message || String(err));
@@ -475,29 +540,20 @@
           setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)} MiB): exceeds 256 MiB limit.`);
           continue;
         }
+
         const dataUrl = await readAsDataURL(file);
 
         let width = 0;
         let height = 0;
         try {
-            const imgObj = await loadImageFromDataUrl(dataUrl);
-            width = imgObj.naturalWidth;
-            height = imgObj.naturalHeight;
-        } catch(e) {
-            console.warn("Could not determine image dimensions", e);
-        }
+          const imgObj = await loadImageFromDataUrl(dataUrl);
+          width = imgObj.naturalWidth;
+          height = imgObj.naturalHeight;
+        } catch {}
 
         const base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
         const name = file.name || `upload-${Date.now()}`;
-        state.images.push({ 
-            mime: file.type || 'image/png', 
-            base64, 
-            name, 
-            size: file.size, 
-            dataUrl,
-            width,
-            height
-        });
+        state.images.push({ mime: file.type || 'image/png', base64, name, size: file.size, dataUrl, width, height });
       }
 
       renderThumbs();
@@ -510,11 +566,10 @@
         const imgEl = $('img', node);
         imgEl.src = img.dataUrl;
         imgEl.alt = img.name || 'Pasted image';
-        
-        // Attach preview click
+
         imgEl.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent any parent clicks if they existed
-            openPreview(img.dataUrl);
+          e.stopPropagation();
+          openPreview(img.dataUrl);
         });
 
         const dimText = (img.width && img.height) ? `${img.width}x${img.height}` : 'Unknown';
@@ -522,69 +577,51 @@
         $('[data-role="info"]', node).textContent = `${img.mime.split('/')[1].toUpperCase()} - ${(img.size/1024).toFixed(0)} KiB`;
 
         $('button', node).addEventListener('click', (e) => {
-          e.stopPropagation(); // Don't trigger preview
+          e.stopPropagation();
           state.images.splice(idx, 1);
           renderThumbs();
         });
+
         els.thumbs.appendChild(node);
       });
     }
 
+    // --- Requests ---
     function buildGoogleRequest(prompt) {
       const parts = [{ text: prompt }];
-      for (const img of state.images) {
-        parts.push({
-          inlineData: {
-            mimeType: img.mime,
-            data: img.base64
-          }
-        });
-      }
+      for (const img of state.images) parts.push({ inlineData: { mimeType: img.mime, data: img.base64 } });
 
       const sysText = (els.systemMsg.value || '').trim();
       const aspectRatio = (els.aspectRatio.value || '').trim();
       const imageSize = els.imageSize.value;
 
-      const body = {
-        contents: [{ role: 'user', parts }]
-      };
-
-      if (sysText) {
-        body.system_instruction = {
-          parts: [{ text: sysText }]
-        };
-      }
+      const body = { contents: [{ role: 'user', parts }] };
+      if (sysText) body.system_instruction = { parts: [{ text: sysText }] };
 
       const config = {};
       if (aspectRatio) config.aspectRatio = aspectRatio;
       config.imageSize = imageSize;
+
       body.generationConfig = { imageConfig: config, thinkingConfig: { includeThoughts: true, thinkingBudget: 65535 } };
 
       return {
         url: PROVIDERS.google.url(PROVIDERS.google.model),
         headers: PROVIDERS.google.headers(els.apiKey.value.trim()),
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        isForm: false
       };
     }
 
     function buildOpenRouterRequest(prompt) {
-      const content = [];
-      content.push({ type: 'text', text: prompt });
-      for (const img of state.images) {
-        content.push({
-          type: 'image_url',
-          image_url: { url: img.dataUrl }
-        });
-      }
+      const content = [{ type: 'text', text: prompt }];
+      for (const img of state.images) content.push({ type: 'image_url', image_url: { url: img.dataUrl } });
 
       const sysText = (els.systemMsg.value || '').trim();
       const aspectRatio = (els.aspectRatio.value || '').trim();
       const imageSize = els.imageSize.value;
 
       const messages = [];
-      if (sysText) {
-        messages.push({ role: 'system', content: sysText });
-      }
+      if (sysText) messages.push({ role: 'system', content: sysText });
       messages.push({ role: 'user', content });
 
       const payload = {
@@ -603,13 +640,75 @@
       return {
         url: PROVIDERS.openrouter.url(),
         headers: PROVIDERS.openrouter.headers(els.apiKey.value.trim()),
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        isForm: false
       };
     }
 
+    function openaiSizeFromAspectRatio(aspectRatio) {
+      const ar = (aspectRatio || '').trim();
+      if (!ar) return 'auto';
+      if (ar === '1:1') return '1024x1024';
+      if (ar === '3:2') return '1536x1024';
+      if (ar === '2:3') return '1024x1536';
+      return 'auto';
+    }
+
+    async function normalizeImageForOpenAI(img) {
+      const blob = dataUrlToBlob(img.dataUrl);
+      const ok = /^image\/(png|webp|jpeg|jpg)$/i.test(blob.type);
+      if (ok) return { blob, filename: img.name || `image-${Date.now()}` };
+
+      const imageObj = await loadImageFromDataUrl(img.dataUrl);
+      const pngBlob = await imageToPngBlob(imageObj);
+      const baseName = (img.name || `image-${Date.now()}`).replace(/\.[a-z0-9]+$/i, '');
+      return { blob: pngBlob, filename: `${baseName}.png` };
+    }
+
+    async function buildOpenAIRequest(prompt) {
+      const apiKey = els.apiKey.value.trim();
+      const sysText = (els.systemMsg.value || '').trim();
+      const combinedPrompt = sysText ? `${sysText}\n\n${prompt}` : prompt;
+
+      const size = openaiSizeFromAspectRatio(els.aspectRatio.value);
+      const quality = (els.imageSize.value || 'low'); // in OpenAI mode imageSize select = quality
+
+      const hasImages = state.images.length > 0;
+      if (hasImages) {
+        const fd = new FormData();
+        fd.append('model', PROVIDERS.openai.model);
+        fd.append('prompt', combinedPrompt);
+        fd.append('size', size);
+        fd.append('quality', quality);
+        fd.append('output_format', 'png');
+        fd.append('background', 'auto');
+        fd.append('n', '1');
+
+        for (const img of state.images) {
+          const { blob, filename } = await normalizeImageForOpenAI(img);
+          fd.append('image[]', blob, filename);
+        }
+
+        return { url: PROVIDERS.openai.url('edits'), headers: PROVIDERS.openai.headers(apiKey, true), body: fd, isForm: true };
+      }
+
+      const body = {
+        model: PROVIDERS.openai.model,
+        prompt: combinedPrompt,
+        n: 1,
+        size,
+        quality,
+        output_format: 'png',
+        background: 'auto',
+        moderation: 'low'
+      };
+
+      return { url: PROVIDERS.openai.url('generations'), headers: PROVIDERS.openai.headers(apiKey, false), body: JSON.stringify(body), isForm: false };
+    }
+
+    // --- Generate ---
     els.generateBtn.addEventListener('click', async () => {
       els.results.innerHTML = '';
-
       clearError();
       clearInfo();
       setStatus('');
@@ -627,12 +726,8 @@
         const provider = state.provider;
         const p = PROVIDERS[provider];
 
-        const req = p.buildRequest(prompt);
-        const res = await fetch(req.url, {
-          method: 'POST',
-          headers: req.headers,
-          body: req.body
-        });
+        const req = await p.buildRequest(prompt);
+        const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body });
 
         const raw = await res.text();
         let data;
@@ -681,12 +776,11 @@
           return acc;
         }, {});
 
-        let statusStr = 'Generated: ';
         const parts = [];
         if (counts.image) parts.push(`${counts.image} image(s)`);
         if (counts.text) parts.push(`${counts.text} text(s)`);
         if (counts.thought) parts.push(`${counts.thought} thought(s)`);
-        setStatus(statusStr + (parts.join(', ') || 'nothing'));
+        setStatus('Generated: ' + (parts.join(', ') || 'nothing'));
       } catch (err) {
         showError(err?.message || String(err));
         setStatus('Error occurred.');
@@ -696,6 +790,7 @@
       }
     });
 
+    // --- Response parsing ---
     function parseGoogleResponse(data) {
       const items = [];
       const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
@@ -736,14 +831,27 @@
       return { items };
     }
 
-    function parseDataUrl(dataUrl = '') {
-      const m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
-      return {
-        mime: m?.[1] || 'image/png',
-        base64: m?.[2] || ''
-      };
+    function parseOpenAIResponse(data) {
+      const items = [];
+      const arr = Array.isArray(data?.data) ? data.data : [];
+      for (const d of arr) {
+        const b64 = d?.b64_json || '';
+        const url = d?.url || '';
+        if (typeof b64 === 'string' && b64.trim()) {
+          items.push({ kind: 'image', mime: 'image/png', base64: b64.trim(), isThought: false });
+        } else if (typeof url === 'string' && url.trim()) {
+          items.push({ kind: 'image', url: url.trim(), isThought: false });
+        }
+      }
+      return { items };
     }
 
+    function parseDataUrl(dataUrl = '') {
+      const m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
+      return { mime: m?.[1] || 'image/png', base64: m?.[2] || '' };
+    }
+
+    // --- Rendering ---
     function extFromMime(mime = '') {
       if (mime.includes('png')) return 'png';
       if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
@@ -751,6 +859,14 @@
       if (mime.includes('gif')) return 'gif';
       if (mime.includes('bmp')) return 'bmp';
       return 'img';
+    }
+    function mimeFromUrl(url = '') {
+      const u = String(url || '').toLowerCase();
+      if (u.includes('.png')) return 'image/png';
+      if (u.includes('.webp')) return 'image/webp';
+      if (u.includes('.jpg') || u.includes('.jpeg')) return 'image/jpeg';
+      if (u.includes('.gif')) return 'image/gif';
+      return 'image/png';
     }
 
     async function renderResults(items) {
@@ -761,60 +877,70 @@
 
         if (it.kind === 'image') {
           try {
-            const mime = it.mime || 'image/png';
-            const dataUrl = `data:${mime};base64,${it.base64}`;
             const node = els.resultImageTpl?.content?.firstElementChild?.cloneNode(true);
             if (!node) throw new Error('Image template not found in DOM.');
 
-            const card = node; 
+            // Thought images: keep same background as normal, but add blue outline + badge
             if (isThought) {
-                card.classList.remove('border-border');
-                card.classList.add('border-thought/50', 'bg-thought/5');
-                const badge = node.querySelector('[data-role="thought-badge"]');
-                if (badge) badge.classList.remove('hidden');
+              node.classList.remove('border-border');
+              node.classList.add('border-thought/50');
+              const badge = node.querySelector('[data-role="thought-badge"]');
+              if (badge) badge.classList.remove('hidden');
             }
 
             const imgEl = node.querySelector('img');
 
+            let src = '';
+            let mime = it.mime || 'image/png';
+            let sizeBytes = 0;
             let width = 0;
             let height = 0;
-            let sizeBytes = 0;
 
-            try {
+            if (it.base64) {
+              mime = it.mime || 'image/png';
+              src = `data:${mime};base64,${it.base64}`;
+              try {
                 const padding = (it.base64.endsWith("==")) ? 2 : (it.base64.endsWith("=") ? 1 : 0);
                 sizeBytes = (it.base64.length * (3/4)) - padding;
-
-                const imgObj = await loadImageFromDataUrl(dataUrl);
+                const imgObj = await loadImageFromDataUrl(src);
                 width = imgObj.naturalWidth;
                 height = imgObj.naturalHeight;
-            } catch(e) { console.warn("Failed to get result image dims", e); }
+              } catch {}
+            } else if (it.url) {
+              src = it.url;
+              mime = mimeFromUrl(it.url);
+            } else {
+              continue;
+            }
 
             if (imgEl) {
-              imgEl.src = dataUrl;
+              imgEl.src = src;
               imgEl.alt = isThought ? 'Thought Process Image' : 'Generated image';
-              imgEl.addEventListener('click', () => openPreview(dataUrl));
+              imgEl.addEventListener('click', () => openPreview(src));
             }
 
             const mimeEl = node.querySelector('[data-role="mime"]');
-            const sizeKb = (sizeBytes / 1024).toFixed(0);
-            if (mimeEl) mimeEl.textContent = `${mime.split('/')[1].toUpperCase()} - ${sizeKb} KiB`;
+            const sizeKb = sizeBytes ? (sizeBytes / 1024).toFixed(0) : '';
+            if (mimeEl) mimeEl.textContent = sizeKb ? `${mime.split('/')[1].toUpperCase()} - ${sizeKb} KiB` : `${mime.split('/')[1].toUpperCase()}`;
 
             const resBadge = node.querySelector('[data-role="res-badge"]');
-            if (resBadge && width && height) {
-                resBadge.textContent = `${width}x${height}`;
-            }
+            if (resBadge && width && height) resBadge.textContent = `${width}x${height}`;
+            else if (resBadge) resBadge.textContent = '';
 
-            let a = node.querySelector('[data-role="download"]');
-            a.href = dataUrl;
-            a.download = `${isThought ? 'thought' : 'gemini'}-image-${Date.now()}.${extFromMime(mime)}`;
+            const a = node.querySelector('[data-role="download"]');
+            a.href = src;
+            a.download = `${isThought ? 'thought' : 'api'}-image-${Date.now()}.${extFromMime(mime)}`;
 
-            let copyBtn = node.querySelector('[data-role="copy"]');
+            const copyBtn = node.querySelector('[data-role="copy"]');
             copyBtn.addEventListener('click', async () => {
               try {
-                const msg = await copyImageToClipboard(dataUrl, mime);
+                if (!src.startsWith('data:image')) {
+                  setStatus('Copy image only supports base64 (data:) images in this UI.');
+                  return;
+                }
+                const msg = await copyImageToClipboard(src, mime);
                 setStatus(msg);
-              } catch (e) {
-                console.error(e);
+              } catch {
                 setStatus('Failed to copy image to clipboard.');
               }
             });
@@ -823,20 +949,18 @@
           } catch (e) {
             showError(e?.message || String(e));
           }
-        } else if (it.kind === 'text') {
+        }
+
+        if (it.kind === 'text') {
           const txt = (it.text || '').trim();
           if (!txt || txt === '`') continue;
 
           const node = els.resultTextTpl?.content?.firstElementChild?.cloneNode(true);
-          if (!node) {
-            showError('Text template not found in DOM.');
-            continue;
-          }
+          if (!node) { showError('Text template not found in DOM.'); continue; }
 
-          const card = node;
           if (isThought) {
-            card.classList.remove('border-border');
-            card.classList.add('border-thought/50');
+            node.classList.remove('border-border');
+            node.classList.add('border-thought/50');
 
             const header = node.querySelector('[data-role="thought-header"]');
             if (header) header.classList.remove('hidden');
@@ -862,6 +986,7 @@
               }
             });
           }
+
           els.results.appendChild(node);
         }
       }
@@ -874,6 +999,7 @@
       }
     }
 
+    // --- Utilities ---
     function readAsDataURL(file) {
       return new Promise((resolve, reject) => {
         const fr = new FileReader();
@@ -881,33 +1007,6 @@
         fr.onerror = () => reject(fr.error || new Error('Failed to read file.'));
         fr.readAsDataURL(file);
       });
-    }
-
-    async function copyImageToClipboard(dataUrl, mime = 'image/png') {
-      if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
-        throw new Error('Image clipboard not supported in this browser.');
-      }
-
-      const wantPng = !/image\/png/i.test(mime);
-      try {
-        let pngBlob;
-        if (!wantPng && /image\/png/i.test(mime)) {
-          pngBlob = dataUrlToBlob(dataUrl);
-          if (!/image\/png/i.test(pngBlob.type)) {
-            const img = await loadImageFromDataUrl(dataUrl);
-            pngBlob = await imageToPngBlob(img);
-          }
-        } else {
-          const img = await loadImageFromDataUrl(dataUrl);
-          pngBlob = await imageToPngBlob(img);
-        }
-
-        const item = new ClipboardItem({ 'image/png': pngBlob });
-        await navigator.clipboard.write([item]);
-        return 'Copied image to clipboard (PNG).';
-      } catch (err) {
-        throw err;
-      }
     }
 
     function dataUrlToBlob(dataUrl) {
@@ -926,7 +1025,7 @@
       return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image for clipboard.'));
+        img.onerror = () => reject(new Error('Failed to load image.'));
         img.src = dataUrl;
       });
     }
@@ -952,18 +1051,37 @@
       });
     }
 
-    els.uploadImages.addEventListener('click', () => {
-      els.imageInput.click();
-    });
+    async function copyImageToClipboard(dataUrl, mime = 'image/png') {
+      if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
+        throw new Error('Image clipboard not supported in this browser.');
+      }
+
+      const wantPng = !/image\/png/i.test(mime);
+      let pngBlob;
+
+      if (!wantPng && /image\/png/i.test(mime)) {
+        pngBlob = dataUrlToBlob(dataUrl);
+        if (!/image\/png/i.test(pngBlob.type)) {
+          const img = await loadImageFromDataUrl(dataUrl);
+          pngBlob = await imageToPngBlob(img);
+        }
+      } else {
+        const img = await loadImageFromDataUrl(dataUrl);
+        pngBlob = await imageToPngBlob(img);
+      }
+
+      const item = new ClipboardItem({ 'image/png': pngBlob });
+      await navigator.clipboard.write([item]);
+      return 'Copied image to clipboard (PNG).';
+    }
+
+    // --- Buttons / inputs ---
+    els.uploadImages.addEventListener('click', () => els.imageInput.click());
 
     els.imageInput.addEventListener('change', async (e) => {
-      try {
-        await handleFiles(e.target.files);
-      } catch (err) {
-        showError(err?.message || String(err));
-      } finally {
-        e.target.value = '';
-      }
+      try { await handleFiles(e.target.files); }
+      catch (err) { showError(err?.message || String(err)); }
+      finally { e.target.value = ''; }
     });
 
     els.clearImages.addEventListener('click', () => {
@@ -971,7 +1089,11 @@
       renderThumbs();
       setStatus('Images cleared.');
     });
-    els.clearResults.addEventListener('click', () => { els.results.innerHTML = ''; setStatus('Results cleared.'); });
+
+    els.clearResults.addEventListener('click', () => {
+      els.results.innerHTML = '';
+      setStatus('Results cleared.');
+    });
 
     els.endpoint.addEventListener('change', () => {
       state.provider = els.endpoint.value;
@@ -982,9 +1104,15 @@
       els.apiKey.type = els.apiKey.type === 'password' ? 'text' : 'password';
       els.toggleKey.textContent = els.apiKey.type === 'password' ? 'Show' : 'Hide';
     });
-    els.clearKey.addEventListener('click', () => { clearApiKey(); setStatus('API key cleared for current provider.'); });
+
+    els.clearKey.addEventListener('click', () => {
+      clearApiKey();
+      setStatus('API key cleared for current provider.');
+    });
+
     els.apiKey.addEventListener('input', saveApiKey);
 
+    // Start
     loadProvider();
   </script>
 </body>
