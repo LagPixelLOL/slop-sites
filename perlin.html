@@ -4,48 +4,172 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Perlin WebGPU</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
     html, body { margin: 0; height: 100%; background: #000; }
-    canvas { width: 100dvw; height: 100dvh; display: block; }
+    body {
+      background-color: #000;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      transition: background-image 200ms ease, background-color 200ms ease;
+    }
+    body.bg-image {
+      background-color: #000;
+      background-image: url("https://images.unsplash.com/photo-1506905925346-21bda4d32df4");
+    }
+
+    canvas { width: 100dvw; height: 100dvh; display: block; background: transparent; }
+
     #hud {
       position: fixed; left: 16px; top: 16px;
       font: 1rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       color: #ddd; background: rgba(0,0,0,0.55);
       padding: 10px 10px; border-radius: 8px;
       max-width: 520px;
+      backdrop-filter: blur(6px);
     }
+
+    .hud-btn {
+      display:block;
+      margin-top:8px;
+      padding:6px 10px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.25);
+      background:rgba(255,255,255,0.08);
+      color:#ddd;
+      cursor:pointer;
+      user-select:none;
+    }
+    .hud-btn:hover { background: rgba(255,255,255,0.12); }
   </style>
 </head>
 <body>
   <canvas id="c"></canvas>
   <div id="hud">
-    Perlin WebGPU
+    <div>Perlin WebGPU</div>
+    <button id="toggleMode" class="hud-btn">Switch mode</button>
+    <button id="toggleBg" class="hud-btn">Background: Black</button>
+    <div id="status" style="margin-top:8px;color:#bbb;font-size:0.9rem;line-height:1.25;"></div>
   </div>
 
   <script type="module">
-    const canvas = document.getElementById("c");
+    let canvas = document.getElementById("c");
+    const statusEl = document.getElementById("status");
+    const toggleModeBtn = document.getElementById("toggleMode");
+    const toggleBgBtn = document.getElementById("toggleBg");
 
-    if (!navigator.gpu) {
-      document.getElementById("hud").textContent = "WebGPU not supported in this browser.";
-      throw new Error("WebGPU not supported");
+    let currentMode = null;
+    let rafId = 0;
+    let activeConfigure = null;
+    let bgMode = "black"; // 'black' | 'image'
+
+    function setStatus(msg) {
+      statusEl.textContent = msg || "";
     }
 
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) throw new Error("No GPU adapter found");
-    const device = await adapter.requestDevice();
+    function replaceCanvas() {
+      const newCanvas = document.createElement("canvas");
+      newCanvas.id = "c";
+      canvas.replaceWith(newCanvas);
+      canvas = newCanvas;
+      return canvas;
+    }
 
-    const context = canvas.getContext("webgpu");
-    const format = navigator.gpu.getPreferredCanvasFormat();
+    function stopActive() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0;
+      activeConfigure = null;
+    }
 
-    // Uniform layout: 2 vec4<f32> = 32 bytes
-    // params0: (width, height, time, scale)
-    // params1: (speedZ, 0, 0, 0)
-    const uniformBuffer = device.createBuffer({
-      size: 32,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    function updateModeButtonLabel() {
+      if (currentMode === "webgpu") toggleModeBtn.textContent = "Switch to WebGL";
+      else if (currentMode === "webgl") toggleModeBtn.textContent = "Switch to WebGPU";
+      else toggleModeBtn.textContent = "Switch mode";
+    }
+
+    function updateBgButtonLabel() {
+      toggleBgBtn.textContent = bgMode === "image" ? "Background: Image" : "Background: Black";
+    }
+
+    function applyBackground() {
+      if (bgMode === "image") document.body.classList.add("bg-image");
+      else document.body.classList.remove("bg-image");
+      updateBgButtonLabel();
+      updateStatusLine();
+    }
+
+    function updateStatusLine(extra = "") {
+      const modeText = currentMode ? `Mode: ${currentMode.toUpperCase()}` : "Mode: (starting...)";
+      const bgText = `Background: ${bgMode === "image" ? "Image" : "Black"}`;
+      setStatus([modeText, bgText, extra].filter(Boolean).join(" - "));
+    }
+
+    // Single global resize listener (avoids accumulating listeners when switching modes).
+    window.addEventListener("resize", () => activeConfigure && activeConfigure(), { passive: true });
+
+    async function start(mode) {
+      stopActive();
+      replaceCanvas();
+
+      if (mode === "webgpu") {
+        if (!navigator.gpu) {
+          currentMode = "webgl";
+          updateModeButtonLabel();
+          updateStatusLine("WebGPU not supported. Using WebGL.");
+          await startWebGL();
+          return;
+        }
+        try {
+          await startWebGPU();
+          currentMode = "webgpu";
+          updateModeButtonLabel();
+          updateStatusLine();
+        } catch (e) {
+          console.warn(e);
+          currentMode = "webgl";
+          updateModeButtonLabel();
+          updateStatusLine("WebGPU init failed. Using WebGL.");
+          await startWebGL();
+        }
+      } else {
+        await startWebGL();
+        currentMode = "webgl";
+        updateModeButtonLabel();
+        updateStatusLine();
+      }
+    }
+
+    toggleModeBtn.addEventListener("click", async () => {
+      if (currentMode === "webgpu") await start("webgl");
+      else await start("webgpu");
     });
 
-    const shaderCode = /* wgsl */`
+    toggleBgBtn.addEventListener("click", () => {
+      bgMode = (bgMode === "black") ? "image" : "black";
+      applyBackground();
+    });
+
+    async function startWebGPU() {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) throw new Error("No GPU adapter found");
+      const device = await adapter.requestDevice();
+
+      const context = canvas.getContext("webgpu");
+      if (!context) throw new Error("Failed to acquire WebGPU canvas context");
+
+      const format = navigator.gpu.getPreferredCanvasFormat();
+
+      // Uniform layout: 2 vec4<f32> = 32 bytes
+      // params0: (width, height, time, scale)
+      // params1: (speedZ, 0, 0, 0)
+      const uniformBuffer = device.createBuffer({
+        size: 32,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+
+      const shaderCode = /* wgsl */`
 struct Uniforms {
   params0 : vec4<f32>,
   params1 : vec4<f32>,
@@ -53,13 +177,11 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> U : Uniforms;
 
 fn fade(t: f32) -> f32 {
-  // 6t^5 - 15t^4 + 10t^3
   return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 fn lerp(a: f32, b: f32, t: f32) -> f32 { return a + t * (b - a); }
 
 fn hash3(p: vec3<i32>) -> u32 {
-  // Deterministic integer hash for 3D lattice points
   let x = u32(p.x);
   let y = u32(p.y);
   let z = u32(p.z);
@@ -70,7 +192,6 @@ fn hash3(p: vec3<i32>) -> u32 {
 }
 
 fn grad3(h: u32) -> vec3<f32> {
-  // 12 classic-ish gradient directions
   let idx = i32(h % 12u);
   switch idx {
     case 0:  { return vec3<f32>( 1.0,  1.0,  0.0); }
@@ -96,7 +217,6 @@ fn perlin3(p: vec3<f32>) -> f32 {
   let v = fade(pf.y);
   let w = fade(pf.z);
 
-  // Dot products at 8 corners
   let g000 = grad3(hash3(pi + vec3<i32>(0,0,0)));
   let g100 = grad3(hash3(pi + vec3<i32>(1,0,0)));
   let g010 = grad3(hash3(pi + vec3<i32>(0,1,0)));
@@ -134,7 +254,6 @@ fn perlin3(p: vec3<f32>) -> f32 {
 
   let nxyz = lerp(nxy0, nxy1, w);
 
-  // Scale to roughly [-1,1] and clamp
   let scaled = nxyz * 1.2;
   return clamp(scaled, -1.0, 1.0);
 }
@@ -145,7 +264,6 @@ struct VSOut {
 
 @vertex
 fn vsMain(@builtin(vertex_index) vid: u32) -> VSOut {
-  // Fullscreen triangle
   var p = array<vec2<f32>, 3>(
     vec2<f32>(-1.0, -1.0),
     vec2<f32>( 3.0, -1.0),
@@ -169,7 +287,6 @@ fn fsMain(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
 
   let speedZ = U.params1.x;
 
-  // Aspect-correct + centered coordinates.
   let minDim = min(width, height);
   let xy = (fragPos.xy - 0.5 * vec2<f32>(width, height)) / minDim + 42;
 
@@ -185,83 +302,437 @@ fn fsMain(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
   let dndz = (nPlus - nMinus) / (2.0 * eps);
 
   let env = max(fadePrime(fract(p.z)), 1e-3);
-  let v = clamp(abs(dndz) / env * 0.1, 0.0, 1.0);
-  return vec4<f32>(vec3<f32>(v), 1.0);
+  let alpha = clamp(abs(dndz) / env * 0.1, 0.0, 1.0);
+
+  // Premultiplied alpha output: white with varying opacity.
+  return vec4<f32>(vec3<f32>(1.0) * alpha, alpha);
 }
 `;
 
-    const module = device.createShaderModule({ code: shaderCode });
+      const module = device.createShaderModule({ code: shaderCode });
 
-    const bindGroupLayout = device.createBindGroupLayout({
-      entries: [
-        { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
-      ],
-    });
-
-    const pipeline = device.createRenderPipeline({
-      layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
-      vertex: { module, entryPoint: "vsMain" },
-      fragment: { module, entryPoint: "fsMain", targets: [{ format }] },
-      primitive: { topology: "triangle-list" },
-    });
-
-    const bindGroup = device.createBindGroup({
-      layout: bindGroupLayout,
-      entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
-    });
-
-    function configure() {
-      const dpr = Math.max(1, window.devicePixelRatio || 1);
-      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
-      }
-      context.configure({ device, format, alphaMode: "opaque" });
-    }
-
-    window.addEventListener("resize", configure);
-    configure();
-
-    const scale = 8.0; // spatial frequency
-    const speedZ = 0.25; // how fast the pattern boils
-
-    function frame(tMs) {
-      configure();
-
-      const t = tMs * 0.001;
-      const w = canvas.width;
-      const h = canvas.height;
-
-      device.queue.writeBuffer(
-        uniformBuffer, 0,
-        new Float32Array([
-          w, h, t, scale,
-          speedZ, 0, 0, 0
-        ])
-      );
-
-      const encoder = device.createCommandEncoder();
-      const pass = encoder.beginRenderPass({
-        colorAttachments: [{
-          view: context.getCurrentTexture().createView(),
-          loadOp: "clear",
-          storeOp: "store",
-          clearValue: { r: 0, g: 0, b: 0, a: 1 },
-        }],
+      const bindGroupLayout = device.createBindGroupLayout({
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
+        ],
       });
 
-      pass.setPipeline(pipeline);
-      pass.setBindGroup(0, bindGroup);
-      pass.draw(3);
-      pass.end();
+      const pipeline = device.createRenderPipeline({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+        vertex: { module, entryPoint: "vsMain" },
+        fragment: { module, entryPoint: "fsMain", targets: [{ format }] },
+        primitive: { topology: "triangle-list" },
+      });
 
-      device.queue.submit([encoder.finish()]);
-      requestAnimationFrame(frame);
+      const bindGroup = device.createBindGroup({
+        layout: bindGroupLayout,
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+      });
+
+      function configure() {
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+        const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        context.configure({ device, format, alphaMode: "premultiplied" });
+      }
+
+      activeConfigure = configure;
+      configure();
+
+      const scale = 8.0;
+      const speedZ = 0.25;
+
+      function frame(tMs) {
+        configure();
+
+        const t = tMs * 0.001;
+        const w = canvas.width;
+        const h = canvas.height;
+
+        device.queue.writeBuffer(
+          uniformBuffer, 0,
+          new Float32Array([
+            w, h, t, scale,
+            speedZ, 0, 0, 0
+          ])
+        );
+
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: context.getCurrentTexture().createView(),
+            loadOp: "clear",
+            storeOp: "store",
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+          }],
+        });
+
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, bindGroup);
+        pass.draw(3);
+        pass.end();
+
+        device.queue.submit([encoder.finish()]);
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
     }
 
-    requestAnimationFrame(frame);
+    async function startWebGL() {
+      /** @type {WebGL2RenderingContext | WebGLRenderingContext | null} */
+      let gl = canvas.getContext("webgl2", {
+        antialias: false,
+        alpha: true,
+        premultipliedAlpha: true,
+      });
+      let isWebGL2 = !!gl;
+      if (!gl) {
+        gl = canvas.getContext("webgl", {
+          antialias: false,
+          alpha: true,
+          premultipliedAlpha: true,
+        });
+      }
+      if (!gl) {
+        updateStatusLine("Neither WebGPU nor WebGL is supported in this browser.");
+        return;
+      }
+
+      function configure() {
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+        const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        gl.viewport(0, 0, canvas.width, canvas.height);
+      }
+
+      activeConfigure = configure;
+      configure();
+
+      const scale = 8.0;
+      const speedZ = 0.25;
+
+      function compileShader(type, src) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(sh) || "";
+          gl.deleteShader(sh);
+          throw new Error(info);
+        }
+        return sh;
+      }
+
+      function createProgram(vsSrc, fsSrc) {
+        const vs = compileShader(gl.VERTEX_SHADER, vsSrc);
+        const fs = compileShader(gl.FRAGMENT_SHADER, fsSrc);
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs);
+        gl.attachShader(prog, fs);
+        gl.linkProgram(prog);
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+          const info = gl.getProgramInfoLog(prog) || "";
+          gl.deleteProgram(prog);
+          throw new Error(info);
+        }
+        return prog;
+      }
+
+      const vs300 = `#version 300 es
+precision highp float;
+const vec2 P[3] = vec2[3](
+  vec2(-1.0, -1.0),
+  vec2( 3.0, -1.0),
+  vec2(-1.0,  3.0)
+);
+void main(){
+  gl_Position = vec4(P[gl_VertexID], 0.0, 1.0);
+}`;
+
+      const fs300 = `#version 300 es
+precision highp float;
+precision highp int;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform float u_scale;
+uniform float u_speedZ;
+
+out vec4 outColor;
+
+float fade(float t){
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+float lerp1(float a, float b, float t){ return a + t * (b - a); }
+
+uint hash3(ivec3 p){
+  uvec3 q = uvec3(p);
+  uint h = q.x * 374761393u + q.y * 668265263u + q.z * 2246822519u;
+  h = (h ^ (h >> 13u)) * 1274126177u;
+  h = (h ^ (h >> 16u));
+  return h;
+}
+
+vec3 grad3(uint h){
+  int idx = int(h % 12u);
+  if (idx == 0)  return vec3( 1.0,  1.0,  0.0);
+  if (idx == 1)  return vec3(-1.0,  1.0,  0.0);
+  if (idx == 2)  return vec3( 1.0, -1.0,  0.0);
+  if (idx == 3)  return vec3(-1.0, -1.0,  0.0);
+  if (idx == 4)  return vec3( 1.0,  0.0,  1.0);
+  if (idx == 5)  return vec3(-1.0,  0.0,  1.0);
+  if (idx == 6)  return vec3( 1.0,  0.0, -1.0);
+  if (idx == 7)  return vec3(-1.0,  0.0, -1.0);
+  if (idx == 8)  return vec3( 0.0,  1.0,  1.0);
+  if (idx == 9)  return vec3( 0.0, -1.0,  1.0);
+  if (idx == 10) return vec3( 0.0,  1.0, -1.0);
+  return vec3( 0.0, -1.0, -1.0);
+}
+
+float perlin3(vec3 p){
+  ivec3 pi = ivec3(floor(p));
+  vec3 pf = fract(p);
+
+  float u = fade(pf.x);
+  float v = fade(pf.y);
+  float w = fade(pf.z);
+
+  vec3 g000 = grad3(hash3(pi + ivec3(0,0,0)));
+  vec3 g100 = grad3(hash3(pi + ivec3(1,0,0)));
+  vec3 g010 = grad3(hash3(pi + ivec3(0,1,0)));
+  vec3 g110 = grad3(hash3(pi + ivec3(1,1,0)));
+  vec3 g001 = grad3(hash3(pi + ivec3(0,0,1)));
+  vec3 g101 = grad3(hash3(pi + ivec3(1,0,1)));
+  vec3 g011 = grad3(hash3(pi + ivec3(0,1,1)));
+  vec3 g111 = grad3(hash3(pi + ivec3(1,1,1)));
+
+  float n000 = dot(g000, pf - vec3(0.0,0.0,0.0));
+  float n100 = dot(g100, pf - vec3(1.0,0.0,0.0));
+  float n010 = dot(g010, pf - vec3(0.0,1.0,0.0));
+  float n110 = dot(g110, pf - vec3(1.0,1.0,0.0));
+  float n001 = dot(g001, pf - vec3(0.0,0.0,1.0));
+  float n101 = dot(g101, pf - vec3(1.0,0.0,1.0));
+  float n011 = dot(g011, pf - vec3(0.0,1.0,1.0));
+  float n111 = dot(g111, pf - vec3(1.0,1.0,1.0));
+
+  float nx00 = lerp1(n000, n100, u);
+  float nx10 = lerp1(n010, n110, u);
+  float nx01 = lerp1(n001, n101, u);
+  float nx11 = lerp1(n011, n111, u);
+
+  float nxy0 = lerp1(nx00, nx10, v);
+  float nxy1 = lerp1(nx01, nx11, v);
+
+  float nxyz = lerp1(nxy0, nxy1, w);
+
+  float scaled = nxyz * 1.2;
+  return clamp(scaled, -1.0, 1.0);
+}
+
+float fadePrime(float t){
+  return 30.0 * t * t * (t - 1.0) * (t - 1.0);
+}
+
+void main(){
+  float width = u_resolution.x;
+  float height = u_resolution.y;
+
+  float minDim = min(width, height);
+  vec2 xy = (vec2(gl_FragCoord.x, height - gl_FragCoord.y) - 0.5 * vec2(width, height)) / minDim + 42.0;
+
+  float phase = perlin3(vec3(xy * (u_scale * 0.15) + vec2(5.2, -3.7), 0.0));
+  float z = u_time * u_speedZ + phase * 3.5;
+  vec3 p = vec3(xy * u_scale + vec2(17.3, -9.1), z);
+
+  float n = perlin3(p);
+
+  float eps = 0.02;
+  float nPlus  = perlin3(p + vec3(0.0, 0.0, eps));
+  float nMinus = perlin3(p - vec3(0.0, 0.0, eps));
+  float dndz = (nPlus - nMinus) / (2.0 * eps);
+
+  float env = max(fadePrime(fract(p.z)), 1e-3);
+  float a = clamp(abs(dndz) / env * 0.1, 0.0, 1.0);
+
+  // Premultiplied alpha: white with varying opacity.
+  outColor = vec4(vec3(1.0) * a, a);
+}`;
+
+      // WebGL1 fallback shaders (simpler hash; keeps the overall structure).
+      const vs100 = `precision highp float;
+attribute vec2 a_pos;
+void main(){
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}`;
+
+      const fs100 = `precision highp float;
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform float u_scale;
+uniform float u_speedZ;
+
+float fade(float t){
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+float lerp1(float a, float b, float t){ return a + t * (b - a); }
+
+float hash13(vec3 p){
+  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+}
+
+vec3 grad3(vec3 cell){
+  float h = hash13(cell);
+  float a = 6.2831853 * h;
+  float z = h * 2.0 - 1.0;
+  float r = sqrt(max(0.0, 1.0 - z*z));
+  return vec3(r*cos(a), r*sin(a), z);
+}
+
+float perlin3(vec3 p){
+  vec3 pi = floor(p);
+  vec3 pf = fract(p);
+
+  float u = fade(pf.x);
+  float v = fade(pf.y);
+  float w = fade(pf.z);
+
+  vec3 g000 = grad3(pi + vec3(0.0,0.0,0.0));
+  vec3 g100 = grad3(pi + vec3(1.0,0.0,0.0));
+  vec3 g010 = grad3(pi + vec3(0.0,1.0,0.0));
+  vec3 g110 = grad3(pi + vec3(1.0,1.0,0.0));
+  vec3 g001 = grad3(pi + vec3(0.0,0.0,1.0));
+  vec3 g101 = grad3(pi + vec3(1.0,0.0,1.0));
+  vec3 g011 = grad3(pi + vec3(0.0,1.0,1.0));
+  vec3 g111 = grad3(pi + vec3(1.0,1.0,1.0));
+
+  float n000 = dot(g000, pf - vec3(0.0,0.0,0.0));
+  float n100 = dot(g100, pf - vec3(1.0,0.0,0.0));
+  float n010 = dot(g010, pf - vec3(0.0,1.0,0.0));
+  float n110 = dot(g110, pf - vec3(1.0,1.0,0.0));
+  float n001 = dot(g001, pf - vec3(0.0,0.0,1.0));
+  float n101 = dot(g101, pf - vec3(1.0,0.0,1.0));
+  float n011 = dot(g011, pf - vec3(0.0,1.0,1.0));
+  float n111 = dot(g111, pf - vec3(1.0,1.0,1.0));
+
+  float nx00 = lerp1(n000, n100, u);
+  float nx10 = lerp1(n010, n110, u);
+  float nx01 = lerp1(n001, n101, u);
+  float nx11 = lerp1(n011, n111, u);
+
+  float nxy0 = lerp1(nx00, nx10, v);
+  float nxy1 = lerp1(nx01, nx11, v);
+
+  float nxyz = lerp1(nxy0, nxy1, w);
+  float scaled = nxyz * 1.2;
+  return clamp(scaled, -1.0, 1.0);
+}
+
+float fadePrime(float t){
+  return 30.0 * t * t * (t - 1.0) * (t - 1.0);
+}
+
+void main(){
+  float width = u_resolution.x;
+  float height = u_resolution.y;
+
+  float minDim = min(width, height);
+  vec2 xy = (vec2(gl_FragCoord.x, height - gl_FragCoord.y) - 0.5 * vec2(width, height)) / minDim + 42.0;
+
+  float phase = perlin3(vec3(xy * (u_scale * 0.15) + vec2(5.2, -3.7), 0.0));
+  float z = u_time * u_speedZ + phase * 3.5;
+  vec3 p = vec3(xy * u_scale + vec2(17.3, -9.1), z);
+
+  float n = perlin3(p);
+
+  float eps = 0.02;
+  float nPlus  = perlin3(p + vec3(0.0, 0.0, eps));
+  float nMinus = perlin3(p - vec3(0.0, 0.0, eps));
+  float dndz = (nPlus - nMinus) / (2.0 * eps);
+
+  float env = max(fadePrime(fract(p.z)), 1e-3);
+  float a = clamp(abs(dndz) / env * 0.1, 0.0, 1.0);
+
+  // Premultiplied alpha: white with varying opacity.
+  gl_FragColor = vec4(vec3(1.0) * a, a);
+}`;
+
+      let program;
+      let vao = null;
+      let buf = null;
+      let aPosLoc = -1;
+
+      if (isWebGL2) {
+        program = createProgram(vs300, fs300);
+        vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.bindVertexArray(null);
+      } else {
+        program = createProgram(vs100, fs100);
+        aPosLoc = gl.getAttribLocation(program, "a_pos");
+        buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+          -1, -1,
+           3, -1,
+          -1,  3
+        ]), gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      }
+
+      const uRes = gl.getUniformLocation(program, "u_resolution");
+      const uTime = gl.getUniformLocation(program, "u_time");
+      const uScale = gl.getUniformLocation(program, "u_scale");
+      const uSpeed = gl.getUniformLocation(program, "u_speedZ");
+
+      // Transparent clear so page background shows through.
+      gl.clearColor(0, 0, 0, 0);
+
+      function frame(tMs) {
+        configure();
+
+        const t = tMs * 0.001;
+
+        gl.useProgram(program);
+        gl.uniform2f(uRes, canvas.width, canvas.height);
+        gl.uniform1f(uTime, t);
+        gl.uniform1f(uScale, scale);
+        gl.uniform1f(uSpeed, speedZ);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        if (isWebGL2) {
+          gl.bindVertexArray(vao);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          gl.bindVertexArray(null);
+        } else {
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+          gl.enableVertexAttribArray(aPosLoc);
+          gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          gl.disableVertexAttribArray(aPosLoc);
+          gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        }
+
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+    }
+
+    // Init UI state and start.
+    applyBackground();
+    await start(navigator.gpu ? "webgpu" : "webgl");
   </script>
 </body>
 </html>
