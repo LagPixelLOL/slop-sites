@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>CSS Gradient Generator</title>
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Culori (color conversions incl. OKLab/OKLCH + many CSS formats) -->
+    <script src="https://cdn.jsdelivr.net/npm/culori@4.0.1/bundled/culori.min.js"></script>
+
+    <!-- Prism (code highlighting) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-css.min.js"></script>
+
+    <style>
+      input[type="range"] {
+        accent-color: rgb(161 161 170); /* zinc-400 */
+      }
+      .checkerboard {
+        background-color: rgb(9 9 11); /* zinc-950 */
+        background-image:
+          linear-gradient(45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.08) 75%),
+          linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.08) 75%);
+        background-size: 24px 24px;
+        background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+      }
+      .no-select {
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      /* Stop marker: rounded vertical pill bar (common gradient editor style) */
+      .stop-marker {
+        position: absolute;
+        top: 3px;     /* inset so rounded ends don't collide with track border */
+        bottom: 3px;
+        width: var(--marker-w, 8px);
+
+        border-radius: 9999px;
+        cursor: ew-resize;
+
+        border: 1px solid rgba(0, 0, 0, 0.55);
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+          0 0 0 1px rgba(0, 0, 0, 0.25);
+      }
+      .stop-marker.selected {
+        outline: 2px solid rgb(228 228 231); /* zinc-200 */
+        outline-offset: -2px;
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+          0 0 0 3px rgba(255, 255, 255, 0.10);
+      }
+    </style>
+  </head>
+
+  <body class="bg-zinc-950 text-zinc-100">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      <header class="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">CSS Gradient Generator</h1>
+          <p class="text-zinc-400 text-sm mt-1">
+            Linear / Radial / Conic - Repeating variants - Interpolation (<code>in oklab</code>, <code>in oklch</code>, etc.)
+          </p>
+        </div>
+        <div class="text-right text-xs text-zinc-400">
+          <div id="detectedGamutLine"></div>
+          <div class="mt-1">Assumption: sRGB display by default (warnings shown for wide-gamut output).</div>
+        </div>
+      </header>
+
+      <!-- Gamut warning banner -->
+      <div id="gamutBanner" class="hidden mb-4 rounded-lg border border-red-900/50 bg-red-950/50 px-4 py-3">
+        <div class="font-medium text-red-200">Wide-gamut warning</div>
+        <div id="gamutBannerText" class="text-sm text-red-200/90 mt-1"></div>
+      </div>
+
+      <!-- Preview -->
+      <section class="mb-6">
+        <div class="rounded-xl border border-zinc-800 overflow-hidden">
+          <div class="checkerboard">
+            <div id="preview" class="h-56 w-full"></div>
+          </div>
+          <div class="flex items-center justify-between gap-3 px-4 py-3 bg-zinc-950 border-t border-zinc-800">
+            <div class="text-sm text-zinc-300">
+              Preview
+              <span class="text-zinc-500">-</span>
+              <span class="text-zinc-400">Click the stop bar below to add a color stop</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="copyBtn" class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-sm">
+                Copy CSS
+              </button>
+              <button id="resetBtn" class="px-3 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm">
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left: Controls -->
+        <section class="space-y-6">
+          <!-- Gradient basics -->
+          <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="text-lg font-medium">Gradient</h2>
+              <label class="flex items-center gap-2 text-sm text-zinc-300">
+                <input id="repeatingToggle" type="checkbox" class="w-4 h-4" />
+                Repeating
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Type</div>
+                <select id="typeSelect" class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
+                  <option value="linear">Linear</option>
+                  <option value="radial">Radial</option>
+                  <option value="conic">Conic</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Stop output format (colors)</div>
+                <select id="stopFormatSelect" class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
+                  <option value="hex">Hex (sRGB)</option>
+                  <option value="rgb">rgb()</option>
+                  <option value="hsl">hsl()</option>
+                  <option value="oklch" selected>oklch()</option>
+                  <option value="oklab">oklab()</option>
+                  <option value="color-display-p3">color(display-p3 ...)</option>
+                  <option value="color-rec2020">color(rec2020 ...)</option>
+                  <option value="color-a98-rgb">color(a98-rgb ...)</option>
+                  <option value="color-prophoto-rgb">color(prophoto-rgb ...)</option>
+                </select>
+              </label>
+            </div>
+
+            <!-- Type-specific controls -->
+            <div id="typeControls" class="mt-4"></div>
+          </div>
+
+          <!-- Interpolation -->
+          <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <h2 class="text-lg font-medium">Interpolation</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Color interpolation space</div>
+                <select id="interpSpaceSelect" class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
+                  <option value="">(default)</option>
+                  <option value="srgb">srgb</option>
+                  <option value="srgb-linear">srgb-linear</option>
+                  <option value="display-p3">display-p3</option>
+                  <option value="rec2020">rec2020</option>
+                  <option value="a98-rgb">a98-rgb</option>
+                  <option value="prophoto-rgb">prophoto-rgb</option>
+                  <option value="xyz-d65">xyz-d65</option>
+                  <option value="xyz-d50">xyz-d50</option>
+                  <option value="lab">lab</option>
+                  <option value="lch">lch</option>
+                  <option value="oklab">oklab</option>
+                  <option value="oklch" selected>oklch</option>
+                  <option value="hsl">hsl</option>
+                  <option value="hwb">hwb</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Hue interpolation</div>
+                <select id="hueInterpSelect" class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
+                  <option value="">(default)</option>
+                  <option value="shorter">shorter hue</option>
+                  <option value="longer">longer hue</option>
+                  <option value="increasing">increasing hue</option>
+                  <option value="decreasing">decreasing hue</option>
+                </select>
+              </label>
+            </div>
+
+            <p class="text-xs text-zinc-500 mt-3">
+              Generates CSS like: <code>linear-gradient(in oklch longer hue, ...)</code>. Hue mode only matters for hue-based spaces (e.g. <code>hsl</code>, <code>lch</code>, <code>oklch</code>).
+            </p>
+          </div>
+
+          <!-- Stops editor -->
+          <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="text-lg font-medium">Color stops</h2>
+              <div class="flex items-center gap-2">
+                <button id="addStopBtn" class="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-sm">
+                  Add stop
+                </button>
+                <button id="removeStopBtn" class="px-3 py-1.5 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm">
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            <!-- Stop bar -->
+            <div class="mt-4">
+              <div class="text-xs text-zinc-400 mb-2">Stop bar (drag markers)</div>
+
+              <div
+                id="stopBar"
+                class="relative h-12 rounded-lg border border-zinc-800 cursor-crosshair no-select"
+                style="--marker-w: 8px;"
+              >
+                <!-- Background gradient (clipped to rounded corners) -->
+                <div class="absolute inset-0 rounded-lg overflow-hidden">
+                  <div id="stopBarBg" class="absolute inset-0"></div>
+                  <div class="absolute inset-0 pointer-events-none" style="box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04)"></div>
+                </div>
+
+                <!-- Markers -->
+                <div id="markersLayer" class="absolute inset-0"></div>
+              </div>
+            </div>
+
+            <!-- Stop list -->
+            <div class="mt-4">
+              <div class="text-xs text-zinc-400 mb-2">Stops</div>
+              <div id="stopList" class="space-y-2"></div>
+            </div>
+          </div>
+
+          <!-- Color picker -->
+          <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="text-lg font-medium">Selected stop</h2>
+              <div class="text-xs text-zinc-400">
+                <span>Editing mode:</span>
+                <select id="pickerModeSelect" class="ml-2 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs">
+                  <option value="oklch" selected>OKLCH</option>
+                  <option value="oklab">OKLab</option>
+                  <option value="srgb">sRGB</option>
+                  <option value="hsl">HSL</option>
+                  <option value="display-p3">Display-P3</option>
+                  <option value="rec2020">Rec.2020</option>
+                  <option value="a98-rgb">A98 RGB</option>
+                  <option value="prophoto-rgb">ProPhoto RGB</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mt-4 flex items-center gap-3">
+              <div id="selectedSwatch" class="w-10 h-10 rounded-lg border border-zinc-800 checkerboard overflow-hidden"></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs text-zinc-400 mb-1">CSS color (any supported format)</div>
+                <input
+                  id="cssColorInput"
+                  class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm"
+                  placeholder="e.g. oklch(65% 0.18 35 / 0.9) or color(display-p3 1 0 0)"
+                />
+                <div id="colorParseError" class="hidden text-xs text-red-300 mt-1"></div>
+              </div>
+            </div>
+
+            <div id="pickerSliders" class="mt-4 space-y-3"></div>
+
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+                <div class="text-xs text-zinc-400">Computed (sRGB) preview</div>
+                <div id="srgbReadout" class="font-mono text-xs text-zinc-200 mt-1 break-all"></div>
+              </div>
+              <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+                <div class="text-xs text-zinc-400">Stop output (as generated)</div>
+                <div id="stopOutputReadout" class="font-mono text-xs text-zinc-200 mt-1 break-all"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: CSS Output -->
+        <section class="space-y-6">
+          <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div class="flex items-center justify-between gap-4">
+              <h2 class="text-lg font-medium">Generated CSS</h2>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-zinc-800 overflow-hidden">
+              <pre class="m-0 bg-zinc-900/60 p-4 overflow-auto text-sm leading-6"><code id="cssCode" class="language-css"></code></pre>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <h2 class="text-lg font-medium">Notes</h2>
+            <ul class="mt-3 text-sm text-zinc-400 space-y-2 list-disc pl-5">
+              <li>
+                If you output <code>color(display-p3 ...)</code> / <code>color(rec2020 ...)</code> on an sRGB-only display, colors will be clipped/approximated.
+              </li>
+              <li>
+                Browser support for modern color spaces varies. This tool warns based on <code>matchMedia("(color-gamut: ...)")</code>.
+              </li>
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // ---------- Helpers ----------
+      const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+      const round = (v, d = 4) => {
+        const p = Math.pow(10, d);
+        return Math.round(v * p) / p;
+      };
+      const uid = () => Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+
+      // Stop marker width in px (must match --marker-w)
+      const MARKER_W = 8;
+
+      function supportsPhysicalGamut() {
+        const srgb = true;
+        const p3 = window.matchMedia && matchMedia("(color-gamut: p3)").matches;
+        const rec2020 = window.matchMedia && matchMedia("(color-gamut: rec2020)").matches;
+        return { srgb, p3, rec2020 };
+      }
+
+      const physical = supportsPhysicalGamut();
+      const detected = physical.rec2020 ? "rec2020" : (physical.p3 ? "p3" : "srgb");
+      document.getElementById("detectedGamutLine").textContent = `Detected display gamut: ${detected}`;
+
+      function showGamutBanner(msg) {
+        const b = document.getElementById("gamutBanner");
+        const t = document.getElementById("gamutBannerText");
+        t.textContent = msg;
+        b.classList.remove("hidden");
+      }
+      function hideGamutBanner() {
+        document.getElementById("gamutBanner").classList.add("hidden");
+      }
+
+      function isWideGamutSpaceName(space) {
+        return ["display-p3", "rec2020", "a98-rgb", "prophoto-rgb"].includes(space);
+      }
+
+      function checkWideGamutWarnings() {
+        hideGamutBanner();
+        const warnings = [];
+
+        if (state.interpSpace && isWideGamutSpaceName(state.interpSpace)) {
+          warnings.push(`Interpolation space is "${state.interpSpace}".`);
+        }
+
+        const fmt = state.stopFormat;
+        const fmtSpace =
+          fmt === "color-display-p3" ? "display-p3" :
+          fmt === "color-rec2020" ? "rec2020" :
+          fmt === "color-a98-rgb" ? "a98-rgb" :
+          fmt === "color-prophoto-rgb" ? "prophoto-rgb" :
+          null;
+
+        if (fmtSpace) warnings.push(`Stop output uses color(${fmtSpace} ...).`);
+        if (warnings.length === 0) return;
+
+        const ok =
+          (fmtSpace === "display-p3" || state.interpSpace === "display-p3") ? physical.p3 :
+          (fmtSpace === "rec2020" || state.interpSpace === "rec2020") ? physical.rec2020 :
+          false;
+
+        if (!ok) {
+          showGamutBanner(
+            `${warnings.join(" ")} Your physical display appears not to support that gamut (detected: ${detected}). Preview will be clipped/approximated to sRGB.`
+          );
+        }
+      }
+
+      // ---------- Color conversions / formatting ----------
+      const to = {
+        rgb: culori.converter("rgb"),
+        hsl: culori.converter("hsl"),
+        oklch: culori.converter("oklch"),
+        oklab: culori.converter("oklab"),
+        p3: culori.converter("p3"),
+        rec2020: culori.converter("rec2020"),
+        a98: culori.converter("a98"),
+        prophoto: culori.converter("prophoto"),
+      };
+
+      const clamp01 = (x) => clamp(x, 0, 1);
+
+      function formatRgbCss(c) {
+        const r = Math.round(clamp01(c.r) * 255);
+        const g = Math.round(clamp01(c.g) * 255);
+        const b = Math.round(clamp01(c.b) * 255);
+        const a = c.alpha ?? 1;
+        if (a >= 0.9999) return `rgb(${r} ${g} ${b})`;
+        return `rgb(${r} ${g} ${b} / ${round(clamp01(a), 4)})`;
+      }
+
+      function formatHslCss(c) {
+        const h = isFinite(c.h) ? ((c.h % 360) + 360) % 360 : 0;
+        const s = clamp01(c.s);
+        const l = clamp01(c.l);
+        const a = c.alpha ?? 1;
+        const ss = round(s * 100, 2);
+        const ll = round(l * 100, 2);
+        if (a >= 0.9999) return `hsl(${round(h, 2)} ${ss}% ${ll}%)`;
+        return `hsl(${round(h, 2)} ${ss}% ${ll}% / ${round(clamp01(a), 4)})`;
+      }
+
+      function formatOklchCss(c) {
+        const l = clamp01(c.l);
+        const cc = Math.max(0, c.c ?? 0);
+        const h = isFinite(c.h) ? ((c.h % 360) + 360) % 360 : 0;
+        const a = c.alpha ?? 1;
+        const L = round(l * 100, 2);
+        const C = round(cc, 4);
+        const H = round(h, 2);
+        if (a >= 0.9999) return `oklch(${L}% ${C} ${H})`;
+        return `oklch(${L}% ${C} ${H} / ${round(clamp01(a), 4)})`;
+      }
+
+      function formatOklabCss(c) {
+        const l = clamp01(c.l);
+        const a1 = c.a ?? 0;
+        const b1 = c.b ?? 0;
+        const alpha = c.alpha ?? 1;
+        const L = round(l * 100, 2);
+        const A = round(a1, 4);
+        const B = round(b1, 4);
+        if (alpha >= 0.9999) return `oklab(${L}% ${A} ${B})`;
+        return `oklab(${L}% ${A} ${B} / ${round(clamp01(alpha), 4)})`;
+      }
+
+      function formatColorFunction(space, c) {
+        const r = round(clamp01(c.r), 6);
+        const g = round(clamp01(c.g), 6);
+        const b = round(clamp01(c.b), 6);
+        const a = c.alpha ?? 1;
+        const alpha = round(clamp01(a), 6);
+        if (alpha >= 0.999999) return `color(${space} ${r} ${g} ${b})`;
+        return `color(${space} ${r} ${g} ${b} / ${alpha})`;
+      }
+
+      function formatHexCss(c) {
+        const rgb = { ...c, mode: "rgb" };
+        const a = rgb.alpha ?? 1;
+        return culori.formatHex({ ...rgb, alpha: clamp01(a) });
+      }
+
+      function formatStopColor(oklch) {
+        const fmt = state.stopFormat;
+
+        if (fmt === "oklch") return formatOklchCss(oklch);
+        if (fmt === "oklab") return formatOklabCss(to.oklab(oklch));
+        if (fmt === "rgb") return formatRgbCss(to.rgb(oklch));
+        if (fmt === "hsl") return formatHslCss(to.hsl(oklch));
+        if (fmt === "hex") return formatHexCss(to.rgb(oklch));
+
+        if (fmt === "color-display-p3") return formatColorFunction("display-p3", to.p3(oklch));
+        if (fmt === "color-rec2020") return formatColorFunction("rec2020", to.rec2020(oklch));
+        if (fmt === "color-a98-rgb") return formatColorFunction("a98-rgb", to.a98(oklch));
+        if (fmt === "color-prophoto-rgb") return formatColorFunction("prophoto-rgb", to.prophoto(oklch));
+
+        return formatOklchCss(oklch);
+      }
+
+      // ---------- State ----------
+      const initialState = () => ({
+        type: "linear",
+        repeating: false,
+
+        linearAngle: 90,
+
+        radialShape: "ellipse",
+        radialSize: "farthest-corner",
+        radialPosX: 50,
+        radialPosY: 50,
+
+        conicFromAngle: 0,
+        conicPosX: 50,
+        conicPosY: 50,
+
+        interpSpace: "oklch",
+        hueInterp: "",
+
+        stopFormat: "oklch",
+        pickerMode: "oklch",
+
+        stops: [
+          { id: uid(), pos: 0, color: culori.parse("oklch(65% 0.22 25 / 1)") },
+          { id: uid(), pos: 50, color: culori.parse("oklch(70% 0.18 250 / 1)") },
+          { id: uid(), pos: 100, color: culori.parse("oklch(62% 0.25 140 / 1)") },
+        ].map(s => ({ ...s, color: to.oklch(s.color) })),
+
+        selectedStopId: null,
+      });
+
+      let state = initialState();
+      state.selectedStopId = state.stops[1].id;
+
+      // ---------- DOM refs ----------
+      const previewEl = document.getElementById("preview");
+      const cssCodeEl = document.getElementById("cssCode");
+
+      const typeSelect = document.getElementById("typeSelect");
+      const repeatingToggle = document.getElementById("repeatingToggle");
+      const stopFormatSelect = document.getElementById("stopFormatSelect");
+
+      const interpSpaceSelect = document.getElementById("interpSpaceSelect");
+      const hueInterpSelect = document.getElementById("hueInterpSelect");
+
+      const typeControls = document.getElementById("typeControls");
+
+      const stopBar = document.getElementById("stopBar");
+      const stopBarBg = document.getElementById("stopBarBg");
+      const markersLayer = document.getElementById("markersLayer");
+      const stopList = document.getElementById("stopList");
+
+      const addStopBtn = document.getElementById("addStopBtn");
+      const removeStopBtn = document.getElementById("removeStopBtn");
+
+      const pickerModeSelect = document.getElementById("pickerModeSelect");
+      const selectedSwatch = document.getElementById("selectedSwatch");
+      const cssColorInput = document.getElementById("cssColorInput");
+      const colorParseError = document.getElementById("colorParseError");
+      const pickerSliders = document.getElementById("pickerSliders");
+
+      const srgbReadout = document.getElementById("srgbReadout");
+      const stopOutputReadout = document.getElementById("stopOutputReadout");
+
+      const copyBtn = document.getElementById("copyBtn");
+      const resetBtn = document.getElementById("resetBtn");
+
+      // ---------- Gradient generation ----------
+      function interpolationClause() {
+        if (!state.interpSpace) return "";
+        const space = state.interpSpace;
+
+        const hueSpaces = new Set(["hsl", "hwb", "lch", "oklch"]);
+        const hue = (state.hueInterp && hueSpaces.has(space)) ? ` ${state.hueInterp} hue` : "";
+
+        return `in ${space}${hue}`;
+      }
+
+      function stopListClause() {
+        return state.stops
+          .slice()
+          .sort((a, b) => a.pos - b.pos)
+          .map((s) => `${formatStopColor(s.color)} ${round(s.pos, 2)}%`)
+          .join(", ");
+      }
+
+      function gradientCssFunction() {
+        const rep = state.repeating ? "repeating-" : "";
+        const interp = interpolationClause();
+        const stops = stopListClause();
+
+        if (state.type === "linear") {
+          const head = `${interp ? interp + " " : ""}${round(state.linearAngle, 2)}deg`;
+          return `${rep}linear-gradient(${head}, ${stops})`;
+        }
+
+        if (state.type === "radial") {
+          const shapeSize = `${state.radialShape} ${state.radialSize}`;
+          const atPos = `at ${round(state.radialPosX, 2)}% ${round(state.radialPosY, 2)}%`;
+          const head = `${interp ? interp + " " : ""}${shapeSize} ${atPos}`;
+          return `${rep}radial-gradient(${head}, ${stops})`;
+        }
+
+        const from = `from ${round(state.conicFromAngle, 2)}deg`;
+        const atPos = `at ${round(state.conicPosX, 2)}% ${round(state.conicPosY, 2)}%`;
+        const head = `${interp ? interp + " " : ""}${from} ${atPos}`;
+        return `${rep}conic-gradient(${head}, ${stops})`;
+      }
+
+      function generatedCssSnippet() {
+        const fn = gradientCssFunction();
+        return [
+          "/* Paste into your CSS */",
+          `.my-gradient {`,
+          `  background: ${fn};`,
+          `}`
+        ].join("\n");
+      }
+
+      // STOP BAR background gradient (fixed syntax!)
+      // Previously it was: linear-gradient(to right, in oklch, ...)
+      // That comma makes the whole gradient invalid.
+      function stopBarBgGradient() {
+        const parts = state.stops
+          .slice()
+          .sort((a, b) => a.pos - b.pos)
+          .map((s) => `${formatStopColor(s.color)} ${round(s.pos, 2)}%`);
+
+        const interp = interpolationClause(); // "in oklch ..." or ""
+        const head = `to right${interp ? " " + interp : ""}`; // <-- interpolation must be in the same first argument
+
+        return `linear-gradient(${head}, ${parts.join(", ")})`;
+      }
+
+      // ---------- Rendering ----------
+      function selectedStop() {
+        return state.stops.find(s => s.id === state.selectedStopId) || state.stops[0];
+      }
+
+      function setSelectedStop(id) {
+        state.selectedStopId = id;
+        render();
+      }
+
+      function renderTypeControls() {
+        if (state.type === "linear") {
+          typeControls.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Angle (${round(state.linearAngle, 0)}°)</div>
+                <div class="flex items-center gap-3">
+                  <input id="linearAngleRange" type="range" min="0" max="360" step="1" value="${state.linearAngle}" class="w-full">
+                  <input id="linearAngleNum" type="number" min="0" max="360" step="1" value="${state.linearAngle}"
+                    class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm">
+                </div>
+              </label>
+              <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+                <div class="text-xs text-zinc-400">Hint</div>
+                <div class="text-sm text-zinc-300 mt-1">0° = up, 90° = right (CSS angles).</div>
+              </div>
+            </div>
+          `;
+
+          const r = document.getElementById("linearAngleRange");
+          const n = document.getElementById("linearAngleNum");
+          r.addEventListener("input", () => { state.linearAngle = Number(r.value); n.value = r.value; render(); });
+          n.addEventListener("input", () => { state.linearAngle = clamp(Number(n.value || 0), 0, 360); r.value = state.linearAngle; render(); });
+          return;
+        }
+
+        if (state.type === "radial") {
+          typeControls.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Shape</div>
+                <select id="radialShape" class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
+                  <option value="ellipse" ${state.radialShape === "ellipse" ? "selected" : ""}>ellipse</option>
+                  <option value="circle" ${state.radialShape === "circle" ? "selected" : ""}>circle</option>
+                </select>
+              </label>
+
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Size</div>
+                <select id="radialSize" class="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-2 text-sm">
+                  ${["closest-side","closest-corner","farthest-side","farthest-corner"].map(v => `
+                    <option value="${v}" ${state.radialSize === v ? "selected" : ""}>${v}</option>
+                  `).join("")}
+                </select>
+              </label>
+
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Position X (${round(state.radialPosX, 0)}%)</div>
+                <div class="flex items-center gap-3">
+                  <input id="radialPosXRange" type="range" min="0" max="100" step="0.5" value="${state.radialPosX}" class="w-full">
+                  <input id="radialPosXNum" type="number" min="0" max="100" step="0.5" value="${state.radialPosX}"
+                    class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm">
+                </div>
+              </label>
+
+              <label class="block">
+                <div class="text-xs text-zinc-400 mb-1">Position Y (${round(state.radialPosY, 0)}%)</div>
+                <div class="flex items-center gap-3">
+                  <input id="radialPosYRange" type="range" min="0" max="100" step="0.5" value="${state.radialPosY}" class="w-full">
+                  <input id="radialPosYNum" type="number" min="0" max="100" step="0.5" value="${state.radialPosY}"
+                    class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm">
+                </div>
+              </label>
+            </div>
+          `;
+
+          document.getElementById("radialShape").addEventListener("change", (e) => { state.radialShape = e.target.value; render(); });
+          document.getElementById("radialSize").addEventListener("change", (e) => { state.radialSize = e.target.value; render(); });
+
+          const bindRangeNum = (rangeId, numId, key, min, max) => {
+            const rr = document.getElementById(rangeId);
+            const nn = document.getElementById(numId);
+            rr.addEventListener("input", () => { state[key] = Number(rr.value); nn.value = rr.value; render(); });
+            nn.addEventListener("input", () => { state[key] = clamp(Number(nn.value || 0), min, max); rr.value = state[key]; render(); });
+          };
+          bindRangeNum("radialPosXRange", "radialPosXNum", "radialPosX", 0, 100);
+          bindRangeNum("radialPosYRange", "radialPosYNum", "radialPosY", 0, 100);
+          return;
+        }
+
+        // conic
+        typeControls.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="block">
+              <div class="text-xs text-zinc-400 mb-1">From angle (${round(state.conicFromAngle, 0)}°)</div>
+              <div class="flex items-center gap-3">
+                <input id="conicFromRange" type="range" min="0" max="360" step="1" value="${state.conicFromAngle}" class="w-full">
+                <input id="conicFromNum" type="number" min="0" max="360" step="1" value="${state.conicFromAngle}"
+                  class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm">
+              </div>
+            </label>
+
+            <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+              <div class="text-xs text-zinc-400">Hint</div>
+              <div class="text-sm text-zinc-300 mt-1">Conic stops use % as angles around the circle.</div>
+            </div>
+
+            <label class="block">
+              <div class="text-xs text-zinc-400 mb-1">Center X (${round(state.conicPosX, 0)}%)</div>
+              <div class="flex items-center gap-3">
+                <input id="conicPosXRange" type="range" min="0" max="100" step="0.5" value="${state.conicPosX}" class="w-full">
+                <input id="conicPosXNum" type="number" min="0" max="100" step="0.5" value="${state.conicPosX}"
+                  class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm">
+              </div>
+            </label>
+
+            <label class="block">
+              <div class="text-xs text-zinc-400 mb-1">Center Y (${round(state.conicPosY, 0)}%)</div>
+              <div class="flex items-center gap-3">
+                <input id="conicPosYRange" type="range" min="0" max="100" step="0.5" value="${state.conicPosY}" class="w-full">
+                <input id="conicPosYNum" type="number" min="0" max="100" step="0.5" value="${state.conicPosY}"
+                  class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm">
+              </div>
+            </label>
+          </div>
+        `;
+
+        const fr = document.getElementById("conicFromRange");
+        const fn = document.getElementById("conicFromNum");
+        fr.addEventListener("input", () => { state.conicFromAngle = Number(fr.value); fn.value = fr.value; render(); });
+        fn.addEventListener("input", () => { state.conicFromAngle = clamp(Number(fn.value || 0), 0, 360); fr.value = state.conicFromAngle; render(); });
+
+        const bindRangeNum = (rangeId, numId, key, min, max) => {
+          const rr = document.getElementById(rangeId);
+          const nn = document.getElementById(numId);
+          rr.addEventListener("input", () => { state[key] = Number(rr.value); nn.value = rr.value; render(); });
+          nn.addEventListener("input", () => { state[key] = clamp(Number(nn.value || 0), min, max); rr.value = state[key]; render(); });
+        };
+        bindRangeNum("conicPosXRange", "conicPosXNum", "conicPosX", 0, 100);
+        bindRangeNum("conicPosYRange", "conicPosYNum", "conicPosY", 0, 100);
+      }
+
+      function trackWidthPx() {
+        const rect = stopBar.getBoundingClientRect();
+        return Math.max(1, rect.width - MARKER_W);
+      }
+
+      function posToLeftPx(pos) {
+        const tw = trackWidthPx();
+        return (clamp(pos, 0, 100) / 100) * tw;
+      }
+
+      function leftPxToPos(leftPx) {
+        const tw = trackWidthPx();
+        return tw <= 0 ? 0 : clamp((leftPx / tw) * 100, 0, 100);
+      }
+
+      function renderMarkers() {
+        markersLayer.innerHTML = "";
+        const sorted = state.stops.slice().sort((a, b) => a.pos - b.pos);
+
+        for (const s of sorted) {
+          const marker = document.createElement("div");
+          const isSel = s.id === state.selectedStopId;
+
+          marker.className = "stop-marker" + (isSel ? " selected" : "");
+          marker.style.left = `${posToLeftPx(s.pos)}px`;
+          marker.style.background = formatRgbCss(to.rgb(s.color));
+          marker.title = `${round(s.pos, 2)}%`;
+
+          marker.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            setSelectedStop(s.id);
+            beginDragStop(e, s.id);
+          });
+          marker.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setSelectedStop(s.id);
+          });
+
+          markersLayer.appendChild(marker);
+        }
+      }
+
+      function renderStopList() {
+        const sorted = state.stops.slice().sort((a, b) => a.pos - b.pos);
+        stopList.innerHTML = "";
+
+        for (const s of sorted) {
+          const row = document.createElement("div");
+          const isSel = s.id === state.selectedStopId;
+
+          row.className =
+            "flex items-center gap-3 rounded-lg border px-3 py-2 " +
+            (isSel ? "border-zinc-600 bg-zinc-900/40" : "border-zinc-800 bg-zinc-950");
+
+          const sw = document.createElement("button");
+          sw.className = "w-8 h-8 rounded-md border border-zinc-800 checkerboard overflow-hidden flex-none";
+          sw.style.backgroundImage = `linear-gradient(${formatRgbCss(to.rgb(s.color))}, ${formatRgbCss(to.rgb(s.color))})`;
+          sw.title = "Select stop";
+          sw.addEventListener("click", () => setSelectedStop(s.id));
+
+          const posWrap = document.createElement("div");
+          posWrap.className = "flex items-center gap-2 flex-none";
+          posWrap.innerHTML = `
+            <div class="text-xs text-zinc-400 w-10">Pos</div>
+            <input type="number" min="0" max="100" step="0.1"
+              value="${round(s.pos, 2)}"
+              class="w-24 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm font-mono">
+            <div class="text-xs text-zinc-500">%</div>
+          `;
+
+          const posInput = posWrap.querySelector("input");
+          posInput.addEventListener("input", () => {
+            s.pos = clamp(Number(posInput.value || 0), 0, 100);
+            render();
+          });
+
+          const colorText = document.createElement("div");
+          colorText.className = "min-w-0 flex-1";
+          const out = formatStopColor(s.color);
+          colorText.innerHTML = `
+            <div class="text-xs text-zinc-400">Color</div>
+            <div class="font-mono text-xs text-zinc-200 truncate">${out}</div>
+          `;
+
+          row.appendChild(sw);
+          row.appendChild(posWrap);
+          row.appendChild(colorText);
+
+          row.addEventListener("click", (e) => {
+            if (e.target.tagName.toLowerCase() === "input") return;
+            setSelectedStop(s.id);
+          });
+
+          stopList.appendChild(row);
+        }
+      }
+
+      function renderPreviewAndCss() {
+        const grad = gradientCssFunction();
+        previewEl.style.backgroundImage = grad;
+
+        // stop bar gradient background (now valid again)
+        stopBarBg.style.backgroundImage = stopBarBgGradient();
+
+        const css = generatedCssSnippet();
+        cssCodeEl.textContent = css;
+        Prism.highlightElement(cssCodeEl);
+
+        const s = selectedStop();
+        const srgb = to.rgb(s.color);
+        srgbReadout.textContent = `${formatRgbCss(srgb)}  -  ${formatHexCss(srgb)}`;
+        stopOutputReadout.textContent = formatStopColor(s.color);
+
+        selectedSwatch.style.backgroundImage = `linear-gradient(${formatRgbCss(srgb)}, ${formatRgbCss(srgb)})`;
+
+        if (document.activeElement !== cssColorInput) {
+          cssColorInput.value = formatStopColor(s.color);
+        }
+      }
+
+      // ---------- Picker ----------
+      function getPickerSliderDefs(mode) {
+        if (mode === "oklch") {
+          return [
+            { label: "L (lightness %)", min: 0, max: 100, step: 0.1,
+              get: (v) => round(v.L, 3), set: (v, x) => v.L = clamp(x, 0, 100) },
+            { label: "C (chroma)", min: 0, max: 0.5, step: 0.0005,
+              get: (v) => round(v.C, 6), set: (v, x) => v.C = Math.max(0, x) },
+            { label: "H (hue °)", min: 0, max: 360, step: 0.1,
+              get: (v) => round(v.H, 3), set: (v, x) => v.H = ((x % 360) + 360) % 360 },
+            { label: "Alpha", min: 0, max: 1, step: 0.001,
+              get: (v) => round(v.A, 6), set: (v, x) => v.A = clamp(x, 0, 1) },
+          ];
+        }
+
+        if (mode === "oklab") {
+          return [
+            { label: "L (lightness %)", min: 0, max: 100, step: 0.1,
+              get: (v) => round(v.L, 3), set: (v, x) => v.L = clamp(x, 0, 100) },
+            { label: "a", min: -0.5, max: 0.5, step: 0.0005,
+              get: (v) => round(v.a, 6), set: (v, x) => v.a = clamp(x, -0.5, 0.5) },
+            { label: "b", min: -0.5, max: 0.5, step: 0.0005,
+              get: (v) => round(v.b, 6), set: (v, x) => v.b = clamp(x, -0.5, 0.5) },
+            { label: "Alpha", min: 0, max: 1, step: 0.001,
+              get: (v) => round(v.A, 6), set: (v, x) => v.A = clamp(x, 0, 1) },
+          ];
+        }
+
+        if (mode === "srgb") {
+          return [
+            { label: "R", min: 0, max: 255, step: 1,
+              get: (v) => Math.round(v.r), set: (v, x) => v.r = clamp(x, 0, 255) },
+            { label: "G", min: 0, max: 255, step: 1,
+              get: (v) => Math.round(v.g), set: (v, x) => v.g = clamp(x, 0, 255) },
+            { label: "B", min: 0, max: 255, step: 1,
+              get: (v) => Math.round(v.b), set: (v, x) => v.b = clamp(x, 0, 255) },
+            { label: "Alpha", min: 0, max: 1, step: 0.001,
+              get: (v) => round(v.A, 6), set: (v, x) => v.A = clamp(x, 0, 1) },
+          ];
+        }
+
+        if (mode === "hsl") {
+          return [
+            { label: "H (°)", min: 0, max: 360, step: 0.1,
+              get: (v) => round(v.H, 3), set: (v, x) => v.H = ((x % 360) + 360) % 360 },
+            { label: "S (%)", min: 0, max: 100, step: 0.1,
+              get: (v) => round(v.S, 3), set: (v, x) => v.S = clamp(x, 0, 100) },
+            { label: "L (%)", min: 0, max: 100, step: 0.1,
+              get: (v) => round(v.L, 3), set: (v, x) => v.L = clamp(x, 0, 100) },
+            { label: "Alpha", min: 0, max: 1, step: 0.001,
+              get: (v) => round(v.A, 6), set: (v, x) => v.A = clamp(x, 0, 1) },
+          ];
+        }
+
+        return [
+          { label: "R (0..1)", min: 0, max: 1, step: 0.0005,
+            get: (v) => round(v.r, 6), set: (v, x) => v.r = clamp(x, 0, 1) },
+          { label: "G (0..1)", min: 0, max: 1, step: 0.0005,
+            get: (v) => round(v.g, 6), set: (v, x) => v.g = clamp(x, 0, 1) },
+          { label: "B (0..1)", min: 0, max: 1, step: 0.0005,
+            get: (v) => round(v.b, 6), set: (v, x) => v.b = clamp(x, 0, 1) },
+          { label: "Alpha", min: 0, max: 1, step: 0.001,
+            get: (v) => round(v.A, 6), set: (v, x) => v.A = clamp(x, 0, 1) },
+        ];
+      }
+
+      function colorToPickerModeValues(oklch, mode) {
+        if (mode === "oklch") {
+          const c = to.oklch(oklch);
+          return { L: (c.l ?? 0) * 100, C: c.c ?? 0, H: c.h ?? 0, A: c.alpha ?? 1 };
+        }
+        if (mode === "oklab") {
+          const c = to.oklab(oklch);
+          return { L: (c.l ?? 0) * 100, a: c.a ?? 0, b: c.b ?? 0, A: c.alpha ?? 1 };
+        }
+        if (mode === "srgb") {
+          const c = to.rgb(oklch);
+          return { r: clamp01(c.r) * 255, g: clamp01(c.g) * 255, b: clamp01(c.b) * 255, A: c.alpha ?? 1 };
+        }
+        if (mode === "hsl") {
+          const c = to.hsl(oklch);
+          return { H: c.h ?? 0, S: clamp01(c.s) * 100, L: clamp01(c.l) * 100, A: c.alpha ?? 1 };
+        }
+
+        const c =
+          mode === "display-p3" ? to.p3(oklch) :
+          mode === "rec2020" ? to.rec2020(oklch) :
+          mode === "a98-rgb" ? to.a98(oklch) :
+          mode === "prophoto-rgb" ? to.prophoto(oklch) :
+          to.p3(oklch);
+
+        return { r: clamp01(c.r), g: clamp01(c.g), b: clamp01(c.b), A: c.alpha ?? 1 };
+      }
+
+      function pickerModeValuesToOklch(values, mode) {
+        if (mode === "oklch") {
+          return to.oklch({ mode: "oklch", l: clamp01(values.L / 100), c: Math.max(0, values.C), h: values.H, alpha: clamp01(values.A) });
+        }
+        if (mode === "oklab") {
+          return to.oklch({ mode: "oklab", l: clamp01(values.L / 100), a: values.a, b: values.b, alpha: clamp01(values.A) });
+        }
+        if (mode === "srgb") {
+          return to.oklch({ mode: "rgb", r: clamp01(values.r / 255), g: clamp01(values.g / 255), b: clamp01(values.b / 255), alpha: clamp01(values.A) });
+        }
+        if (mode === "hsl") {
+          return to.oklch({ mode: "hsl", h: values.H, s: clamp01(values.S / 100), l: clamp01(values.L / 100), alpha: clamp01(values.A) });
+        }
+
+        const culoriMode =
+          mode === "display-p3" ? "p3" :
+          mode === "rec2020" ? "rec2020" :
+          mode === "a98-rgb" ? "a98" :
+          mode === "prophoto-rgb" ? "prophoto" :
+          "p3";
+
+        return to.oklch({ mode: culoriMode, r: clamp01(values.r), g: clamp01(values.g), b: clamp01(values.b), alpha: clamp01(values.A) });
+      }
+
+      function updateSelectedStopColor(nextOklch) {
+        const s = selectedStop();
+        s.color = to.oklch(nextOklch);
+        renderPreviewAndCss();
+        renderMarkers();
+        renderStopList();
+        checkWideGamutWarnings();
+      }
+
+      function renderPicker() {
+        const s = selectedStop();
+        colorParseError.classList.add("hidden");
+        colorParseError.textContent = "";
+
+        const mode = state.pickerMode;
+        const sliderDefs = getPickerSliderDefs(mode);
+        const values = colorToPickerModeValues(s.color, mode);
+
+        pickerSliders.innerHTML = "";
+        for (const def of sliderDefs) {
+          const wrap = document.createElement("div");
+          wrap.className = "grid grid-cols-1 md:grid-cols-[140px_1fr_100px] gap-2 items-center";
+
+          const label = document.createElement("div");
+          label.className = "text-xs text-zinc-400";
+          label.textContent = def.label;
+
+          const range = document.createElement("input");
+          range.type = "range";
+          range.min = def.min;
+          range.max = def.max;
+          range.step = def.step;
+          range.value = def.get(values);
+
+          const num = document.createElement("input");
+          num.type = "number";
+          num.min = def.min;
+          num.max = def.max;
+          num.step = def.step;
+          num.value = def.get(values);
+          num.className = "bg-zinc-900 border border-zinc-800 rounded-md px-2 py-2 text-sm font-mono";
+
+          const apply = (raw) => {
+            const v = Number(raw);
+            def.set(values, v);
+            updateSelectedStopColor(pickerModeValuesToOklch(values, mode));
+          };
+
+          range.addEventListener("input", () => { num.value = range.value; apply(range.value); });
+          num.addEventListener("input", () => { range.value = num.value; apply(num.value); });
+
+          wrap.appendChild(label);
+          wrap.appendChild(range);
+          wrap.appendChild(num);
+          pickerSliders.appendChild(wrap);
+        }
+      }
+
+      function render() {
+        renderTypeControls();
+        renderMarkers();
+        renderStopList();
+        renderPreviewAndCss();
+        renderPicker();
+        checkWideGamutWarnings();
+      }
+
+      // ---------- Stop bar interactions ----------
+      function leftPxFromBarEvent(e) {
+        const rect = stopBar.getBoundingClientRect();
+        const tw = Math.max(1, rect.width - MARKER_W);
+        const x = clamp(e.clientX - rect.left, 0, rect.width);
+        return clamp(x, 0, tw);
+      }
+
+      stopBar.addEventListener("click", (e) => {
+        const pos = leftPxToPos(leftPxFromBarEvent(e));
+        addStopAt(pos);
+      });
+
+      function addStopAt(pos) {
+        const sel = selectedStop();
+        const newStop = { id: uid(), pos: clamp(pos, 0, 100), color: to.oklch(sel.color) };
+        state.stops.push(newStop);
+        state.selectedStopId = newStop.id;
+        render();
+      }
+
+      function removeSelectedStop() {
+        if (state.stops.length <= 2) return;
+        const idx = state.stops.findIndex(s => s.id === state.selectedStopId);
+        if (idx >= 0) state.stops.splice(idx, 1);
+        state.selectedStopId = state.stops[Math.max(0, idx - 1)].id;
+        render();
+      }
+
+      addStopBtn.addEventListener("click", () => addStopAt(50));
+      removeStopBtn.addEventListener("click", () => removeSelectedStop());
+
+      function beginDragStop(e, id) {
+        const onMove = (ev) => {
+          const rect = stopBar.getBoundingClientRect();
+          const tw = Math.max(1, rect.width - MARKER_W);
+          const x = clamp(ev.clientX - rect.left, 0, rect.width);
+          const leftPx = clamp(x, 0, tw);
+          const pos = leftPxToPos(leftPx);
+
+          const s = state.stops.find(x => x.id === id);
+          if (!s) return;
+          s.pos = pos;
+
+          renderPreviewAndCss();
+          renderMarkers();
+          renderStopList();
+        };
+        const onUp = () => {
+          window.removeEventListener("mousemove", onMove);
+          window.removeEventListener("mouseup", onUp);
+          render();
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+      }
+
+      // ---------- Basic controls ----------
+      typeSelect.addEventListener("change", (e) => { state.type = e.target.value; render(); });
+      repeatingToggle.addEventListener("change", (e) => { state.repeating = e.target.checked; render(); });
+      stopFormatSelect.addEventListener("change", (e) => { state.stopFormat = e.target.value; render(); });
+
+      interpSpaceSelect.addEventListener("change", (e) => { state.interpSpace = e.target.value; render(); });
+      hueInterpSelect.addEventListener("change", (e) => { state.hueInterp = e.target.value; render(); });
+
+      pickerModeSelect.addEventListener("change", (e) => {
+        state.pickerMode = e.target.value;
+        renderPicker();
+        checkWideGamutWarnings();
+      });
+
+      cssColorInput.addEventListener("change", () => {
+        const raw = cssColorInput.value.trim();
+        const parsed = culori.parse(raw);
+        if (!parsed) {
+          colorParseError.textContent = "Could not parse that color string.";
+          colorParseError.classList.remove("hidden");
+          return;
+        }
+        colorParseError.classList.add("hidden");
+        updateSelectedStopColor(to.oklch(parsed));
+        renderPicker();
+      });
+
+      // ---------- Copy / Reset ----------
+      copyBtn.addEventListener("click", async () => {
+        const css = generatedCssSnippet();
+        try {
+          await navigator.clipboard.writeText(css);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => (copyBtn.textContent = "Copy CSS"), 900);
+        } catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = css;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => (copyBtn.textContent = "Copy CSS"), 900);
+        }
+      });
+
+      resetBtn.addEventListener("click", () => {
+        state = initialState();
+        state.selectedStopId = state.stops[1].id;
+
+        typeSelect.value = state.type;
+        repeatingToggle.checked = state.repeating;
+        stopFormatSelect.value = state.stopFormat;
+        interpSpaceSelect.value = state.interpSpace;
+        hueInterpSelect.value = state.hueInterp;
+        pickerModeSelect.value = state.pickerMode;
+
+        render();
+      });
+
+      window.addEventListener("resize", () => {
+        // markers are pixel-positioned, keep them correct on resize
+        renderMarkers();
+      });
+
+      // ---------- Init ----------
+      typeSelect.value = state.type;
+      repeatingToggle.checked = state.repeating;
+      stopFormatSelect.value = state.stopFormat;
+      interpSpaceSelect.value = state.interpSpace;
+      hueInterpSelect.value = state.hueInterp;
+      pickerModeSelect.value = state.pickerMode;
+
+      render();
+    </script>
+  </body>
+</html>
