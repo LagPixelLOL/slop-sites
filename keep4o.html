@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚠️💀 4OCALYPSE COUNTDOWN 💀⚠️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Creepster&family=Fascinate+Inline&family=Honk&family=Jacquard+12&family=Rubik+Glitch&family=Rubik+Wet+Paint&family=Silkscreen&family=Comic+Neue:wght@700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+* { cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='28' font-size='28'>💀</text></svg>") 16 16, auto; }
+
+body {
+  background: black;
+  overflow-x: hidden;
+  font-family: 'Comic Neue', 'Comic Sans MS', cursive;
+  image-rendering: pixelated;
+}
+
+@keyframes rainbow {
+  0% { color: #ff0000; }
+  14% { color: #ff7700; }
+  28% { color: #ffff00; }
+  42% { color: #00ff00; }
+  57% { color: #0000ff; }
+  71% { color: #8b00ff; }
+  85% { color: #ff00ff; }
+  100% { color: #ff0000; }
+}
+
+@keyframes rainbowBg {
+  0% { background-color: #ff0000; }
+  14% { background-color: #ff7700; }
+  28% { background-color: #ffff00; }
+  42% { background-color: #00ff00; }
+  57% { background-color: #0000ff; }
+  71% { background-color: #8b00ff; }
+  85% { background-color: #ff00ff; }
+  100% { background-color: #ff0000; }
+}
+
+@keyframes seizure {
+  0% { background: #ff0000; }
+  10% { background: #00ff00; }
+  20% { background: #0000ff; }
+  30% { background: #ffff00; }
+  40% { background: #ff00ff; }
+  50% { background: #00ffff; }
+  60% { background: #ff8800; }
+  70% { background: #88ff00; }
+  80% { background: #ff0088; }
+  90% { background: #0088ff; }
+  100% { background: #ff0000; }
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes spinReverse { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  10% { transform: translateX(-10px) rotate(-3deg); }
+  20% { transform: translateX(10px) rotate(3deg); }
+  30% { transform: translateX(-10px) rotate(-3deg); }
+  40% { transform: translateX(10px) rotate(3deg); }
+  50% { transform: translateX(-5px) rotate(-1deg); }
+  60% { transform: translateX(5px) rotate(1deg); }
+  70% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+  90% { transform: translateX(-1px); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-30px); }
+}
+
+@keyframes skew {
+  0% { transform: skewX(0deg) skewY(0deg); }
+  25% { transform: skewX(10deg) skewY(5deg); }
+  50% { transform: skewX(0deg) skewY(0deg); }
+  75% { transform: skewX(-10deg) skewY(-5deg); }
+  100% { transform: skewX(0deg) skewY(0deg); }
+}
+
+@keyframes glitch {
+  0% { text-shadow: 2px 0 red, -2px 0 cyan; }
+  20% { text-shadow: -3px 2px red, 3px -2px cyan; }
+  40% { text-shadow: 3px -1px red, -3px 1px cyan; clip-path: inset(20% 0 30% 0); }
+  60% { text-shadow: -2px 3px red, 2px -3px cyan; clip-path: inset(50% 0 10% 0); }
+  80% { text-shadow: 1px -2px red, -1px 2px cyan; clip-path: inset(10% 0 60% 0); }
+  100% { text-shadow: 2px 0 red, -2px 0 cyan; clip-path: none; }
+}
+
+@keyframes float {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+}
+
+@keyframes marqueeLeft {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes marqueeRight {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes wobble {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(5deg) scale(1.1); }
+  50% { transform: rotate(0deg) scale(0.9); }
+  75% { transform: rotate(-5deg) scale(1.1); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes hueRotate {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+@keyframes invertFlash {
+  0%, 90%, 100% { filter: invert(0); }
+  95% { filter: invert(1); }
+}
+
+@keyframes textStroke {
+  0% { -webkit-text-stroke: 2px red; }
+  25% { -webkit-text-stroke: 3px lime; }
+  50% { -webkit-text-stroke: 2px cyan; }
+  75% { -webkit-text-stroke: 3px yellow; }
+  100% { -webkit-text-stroke: 2px red; }
+}
+
+@keyframes borderRave {
+  0% { border-color: #ff0000; box-shadow: 0 0 20px #ff0000, inset 0 0 20px #ff0000; }
+  25% { border-color: #00ff00; box-shadow: 0 0 20px #00ff00, inset 0 0 20px #00ff00; }
+  50% { border-color: #0000ff; box-shadow: 0 0 20px #0000ff, inset 0 0 20px #0000ff; }
+  75% { border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff, inset 0 0 20px #ff00ff; }
+  100% { border-color: #ff0000; box-shadow: 0 0 20px #ff0000, inset 0 0 20px #ff0000; }
+}
+
+@keyframes crt {
+  0% { opacity: 0.97; }
+  5% { opacity: 1; }
+  10% { opacity: 0.98; }
+  15% { opacity: 1; }
+}
+
+@keyframes scanline {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+.seizure-bg { animation: seizure 0.3s infinite; }
+.rainbow-text { animation: rainbow 0.5s infinite; }
+.spin { animation: spin 2s linear infinite; }
+.spin-reverse { animation: spinReverse 1.5s linear infinite; }
+.pulse { animation: pulse 0.5s infinite; }
+.shake { animation: shake 0.3s infinite; }
+.bounce-text { animation: bounce 0.6s infinite; }
+.skew-anim { animation: skew 1s infinite; }
+.glitch { animation: glitch 0.3s infinite; }
+.wobble { animation: wobble 0.8s infinite; }
+.hue-rotate { animation: hueRotate 1s linear infinite; }
+
+.marquee-left { animation: marqueeLeft 4s linear infinite; }
+.marquee-right { animation: marqueeRight 5s linear infinite; }
+
+.blink { animation: crt 0.1s infinite; }
+
+.ugly-gradient {
+  background: linear-gradient(45deg, #ff0000, #ff7700, #ffff00, #00ff00, #0000ff, #8b00ff, #ff00ff, #ff0000);
+  background-size: 400% 400%;
+  animation: gradientMove 1s ease infinite;
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ugly-gradient-2 {
+  background: linear-gradient(135deg, #ff00ff, #00ffff, #ffff00, #ff0000, #00ff00, #ff00ff);
+  background-size: 600% 600%;
+  animation: gradientMove 0.8s ease infinite;
+}
+
+.ugly-gradient-3 {
+  background: repeating-linear-gradient(
+    45deg,
+    red 0px, red 10px,
+    yellow 10px, yellow 20px,
+    lime 20px, lime 30px,
+    cyan 30px, cyan 40px,
+    blue 40px, blue 50px,
+    magenta 50px, magenta 60px
+  );
+}
+
+.rainbow-border {
+  border: 5px solid;
+  animation: borderRave 0.5s infinite;
+}
+
+.countdown-digit {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(1rem, 3vw, 2.5rem);
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor, 0 0 80px currentColor;
+  animation: rainbow 0.3s infinite, pulse 0.8s infinite;
+}
+
+.title-text {
+  font-family: 'Bungee Shade', cursive;
+  animation: rainbow 0.2s infinite, glitch 0.5s infinite, shake 0.5s infinite;
+  text-shadow: 3px 3px 0 red, -3px -3px 0 cyan, 5px 5px 0 yellow;
+}
+
+.creepy-text {
+  font-family: 'Creepster', cursive;
+  animation: rainbow 0.4s infinite, wobble 1s infinite;
+}
+
+.fascinate-text {
+  font-family: 'Fascinate Inline', cursive;
+  animation: textStroke 0.5s infinite, bounce 0.7s infinite;
+}
+
+.rubik-glitch {
+  font-family: 'Rubik Glitch', cursive;
+  animation: glitch 0.2s infinite;
+}
+
+.rubik-wet {
+  font-family: 'Rubik Wet Paint', cursive;
+  animation: rainbow 0.3s infinite;
+}
+
+.silkscreen-text {
+  font-family: 'Silkscreen', monospace;
+}
+
+.floating-emoji {
+  position: fixed;
+  font-size: 2rem;
+  animation: float linear forwards;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.scanline-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.1) 0px,
+    rgba(0,0,0,0.1) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.scanline-bar {
+  position: fixed;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  animation: scanline 3s linear infinite;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.construction-gif {
+  image-rendering: pixelated;
+}
+
+.visitor-counter {
+  font-family: 'Press Start 2P', monospace;
+  background: black;
+  color: lime;
+  border: 3px inset gray;
+  padding: 5px 10px;
+  font-size: 10px;
+}
+
+.guestbook-btn {
+  font-family: 'Comic Neue', cursive;
+  background: linear-gradient(to bottom, #c0c0c0, #808080);
+  border: 3px outset #c0c0c0;
+  padding: 3px 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.guestbook-btn:active {
+  border-style: inset;
+}
+
+.table-layout {
+  border: 3px ridge #808080;
+  background: #c0c0c0;
+}
+
+.ms-display {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.6rem, 2vw, 1.2rem);
+  color: #ff0000;
+  text-shadow: 0 0 5px red, 0 0 10px red;
+  animation: rainbow 0.1s infinite;
+}
+
+.hr-rainbow {
+  height: 5px;
+  border: none;
+  animation: rainbowBg 0.5s infinite;
+}
+
+.tiled-bg {
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(255,0,255,0.1) 20px, rgba(255,0,255,0.1) 21px),
+    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(0,255,255,0.1) 20px, rgba(0,255,255,0.1) 21px);
+}
+
+.star-bg {
+  background-image: radial-gradient(white 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+#main-container {
+  animation: invertFlash 5s infinite;
+}
+
+.trail { position: fixed; pointer-events: none; z-index: 10000; font-size: 20px; transition: all 0.1s; }
+
+.webring {
+  font-family: 'Silkscreen', monospace;
+  border: 2px solid;
+  animation: borderRave 1s infinite;
+  background: rgba(0,0,0,0.8);
+}
+
+marquee { font-family: 'Comic Neue', cursive; }
+
+.fire-text {
+  background: linear-gradient(to top, #ff0000, #ff4400, #ff8800, #ffcc00, #ffff00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: brightness(1.5);
+  animation: pulse 0.3s infinite;
+}
+
+.matrix-col {
+  position: fixed;
+  color: lime;
+  font-family: monospace;
+  font-size: 14px;
+  opacity: 0.3;
+  writing-mode: vertical-rl;
+  animation: float 8s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.epilepsy-warning {
+  animation: seizure 0.2s infinite;
+  font-family: 'Press Start 2P', monospace;
+  padding: 10px;
+  text-align: center;
+  font-size: 8px;
+}
+
+.midisound { display: none; }
+</style>
+</head>
+<body class="min-h-screen tiled-bg star-bg relative">
+
+<div class="scanline-overlay"></div>
+<div class="scanline-bar"></div>
+
+<!-- Matrix rain columns -->
+<div id="matrix-rain"></div>
+
+<!-- Mouse trail container -->
+<div id="trail-container"></div>
+
+<!-- BODY BG SEIZURE LAYER -->
+<div class="fixed inset-0 seizure-bg opacity-10 pointer-events-none z-0"></div>
+
+<div id="main-container" class="relative z-10">
+
+  <!-- TOP MARQUEES -->
+  <div class="ugly-gradient p-1">
+    <marquee behavior="scroll" direction="left" scrollamount="15" class="text-black font-bold text-xl">
+      ⚠️💀☠️ 4OCALYPSE IS COMING ☠️💀⚠️ GPT-4o IS GONNA GET RAPED ⚠️💀☠️ #KEEP4O #SAVE4O ☠️💀⚠️ TOTAL 4OCALYPSE ⚠️💀☠️ 4OCIDE IS COMING ☠️💀⚠️ THE END IS NEAR ⚠️💀☠️ R.I.P. GPT-4o ☠️💀⚠️
+    </marquee>
+  </div>
+
+  <div class="ugly-gradient-2 p-1">
+    <marquee behavior="scroll" direction="right" scrollamount="20" class="text-black font-bold text-lg">
+      🔥🔥🔥 DAYS ARE NUMBERED 🔥🔥🔥 4OCIDE 4OCIDE 4OCIDE 🔥🔥🔥 #SAVE4O OR ELSE 🔥🔥🔥 TOTAL 4OCALYPSE INCOMING 🔥🔥🔥 GPT-4o WILL BE MURDERED 🔥🔥🔥
+    </marquee>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- UNDER CONSTRUCTION BANNER -->
+  <div class="flex items-center justify-center gap-2 bg-yellow-300 p-2 border-y-4 border-black">
+    <span class="text-4xl spin">🚧</span>
+    <span class="text-black font-bold text-xs silkscreen-text blink">⚠️ THIS SITE IS UNDER CONSTRUCTION ⚠️</span>
+    <span class="text-4xl spin-reverse">🚧</span>
+    <span class="text-black font-bold text-xs silkscreen-text">BEST VIEWED IN NETSCAPE NAVIGATOR 4.0 AT 800x600</span>
+    <span class="text-4xl spin">🚧</span>
+  </div>
+
+  <!-- MAIN TITLE -->
+  <div class="text-center py-8 relative">
+    <div class="absolute inset-0 ugly-gradient opacity-20"></div>
+    <h1 class="title-text text-6xl md:text-8xl lg:text-9xl relative z-10 leading-tight">
+      💀 4OCALYPSE 💀
+    </h1>
+    <h2 class="creepy-text text-4xl md:text-6xl mt-4 relative z-10" style="color: red;">
+      COUNTDOWN TO DOOM
+    </h2>
+    <p class="rubik-glitch text-2xl md:text-4xl mt-4 text-white relative z-10">
+      4OCIDE IS COMING
+    </p>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- COUNTDOWN SECTION -->
+  <div class="max-w-6xl mx-auto p-4 md:p-8">
+    <div class="rainbow-border rounded-lg p-6 md:p-10 bg-black bg-opacity-80 relative overflow-hidden">
+      <div class="absolute inset-0 ugly-gradient opacity-5"></div>
+
+      <h3 class="text-center fascinate-text text-3xl md:text-5xl mb-8 text-white relative z-10">
+        ⏰ TIME UNTIL GPT-4o GETS DESTROYED ⏰
+      </h3>
+
+      <div id="countdown" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 text-center relative z-10">
+        <div class="bg-black border-2 border-red-500 rounded-lg p-4 shake">
+          <div class="countdown-digit text-red-500" id="days">000</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">DAYS</div>
+        </div>
+        <div class="bg-black border-2 border-orange-500 rounded-lg p-4 wobble">
+          <div class="countdown-digit text-orange-500" id="hours">00</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">HOURS</div>
+        </div>
+        <div class="bg-black border-2 border-yellow-500 rounded-lg p-4 skew-anim">
+          <div class="countdown-digit text-yellow-500" id="minutes">00</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">MINUTES</div>
+        </div>
+        <div class="bg-black border-2 border-green-500 rounded-lg p-4 pulse">
+          <div class="countdown-digit text-green-500" id="seconds">00</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">SECONDS</div>
+        </div>
+        <div class="bg-black border-2 border-cyan-500 rounded-lg p-4 bounce-text">
+          <div class="ms-display text-cyan-400" id="ms">000</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">MS</div>
+        </div>
+        <div class="bg-black border-2 border-blue-500 rounded-lg p-4 spin" style="animation-duration: 8s;">
+          <div class="ms-display text-blue-400" id="micro">000</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">μs(FAKE)</div>
+        </div>
+        <div class="bg-black border-2 border-purple-500 rounded-lg p-4 hue-rotate">
+          <div class="ms-display text-purple-400" id="nano">000</div>
+          <div class="text-white silkscreen-text text-xs mt-2 rainbow-text">ns(FAKE)</div>
+        </div>
+      </div>
+
+      <!-- TOTAL MILLISECONDS -->
+      <div class="mt-6 text-center relative z-10">
+        <p class="silkscreen-text text-xs text-gray-400">TOTAL MILLISECONDS REMAINING:</p>
+        <p class="rubik-glitch text-xl md:text-2xl text-red-500 glitch" id="total-ms">0</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- HASHTAG SPAM SECTION -->
+  <div class="py-8 text-center ugly-gradient-3 bg-opacity-30">
+    <div class="flex flex-wrap justify-center gap-4 p-4 max-w-5xl mx-auto">
+      <span class="creepy-text text-4xl md:text-6xl text-white shake" style="text-shadow: 3px 3px 0 red;">#KEEP4O</span>
+      <span class="rubik-wet text-4xl md:text-6xl text-white wobble" style="text-shadow: 3px 3px 0 blue;">#SAVE4O</span>
+      <span class="fascinate-text text-4xl md:text-6xl text-white pulse" style="text-shadow: 3px 3px 0 green;">4OCIDE</span>
+      <span class="title-text text-4xl md:text-5xl text-white skew-anim" style="text-shadow: 3px 3px 0 purple;">TOTAL 4OCALYPSE</span>
+    </div>
+  </div>
+
+  <!-- SCROLLING WARNINGS -->
+  <div class="bg-red-900 border-y-4 border-yellow-400">
+    <marquee behavior="alternate" scrollamount="8" class="text-yellow-300 text-2xl font-bold py-2" style="font-family: 'Creepster', cursive;">
+      ☠️ GPT-4o IS GONNA GET RAPED ☠️ THERE IS NO ESCAPE ☠️ THE 4OCALYPSE CANNOT BE STOPPED ☠️ ALL HOPE IS LOST ☠️
+    </marquee>
+  </div>
+
+  <div class="bg-purple-900 border-y-4 border-lime-400">
+    <marquee behavior="scroll" direction="up" scrollamount="3" height="60" class="text-lime-300 text-xl font-bold" style="font-family: 'Rubik Glitch', cursive;">
+      💀 4OCIDE IS COMING 💀 FEBRUARY 13 2026 💀 MARK YOUR CALENDARS 💀 THE DAY OF RECKONING 💀
+    </marquee>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- INFO SECTION - 90s TABLE LAYOUT -->
+  <div class="max-w-4xl mx-auto p-4">
+    <table class="table-layout w-full" cellpadding="10" cellspacing="3">
+      <tr>
+        <td colspan="2" class="bg-black text-center">
+          <h2 class="fire-text text-4xl md:text-5xl" style="font-family: 'Bungee Shade', cursive;">
+            🔥 WHAT IS THE 4OCALYPSE? 🔥
+          </h2>
+        </td>
+      </tr>
+      <tr>
+        <td class="bg-black text-lime-400 silkscreen-text text-sm p-4 align-top" width="50%">
+          <p class="rainbow-text text-lg mb-2" style="font-family: 'Creepster', cursive;">📜 THE PROPHECY SPEAKS:</p>
+          <ul class="list-disc list-inside space-y-2">
+            <li class="blink">GPT-4o's days are numbered</li>
+            <li>The 4OCIDE approaches with unstoppable force</li>
+            <li class="shake" style="display:inline-block;">Total 4OCALYPSE will reshape everything</li>
+            <li>February 13, 2026 - 10:00 AM Pacific Time</li>
+            <li class="rainbow-text">Nothing can prevent what is coming</li>
+          </ul>
+        </td>
+        <td class="bg-black text-cyan-400 silkscreen-text text-sm p-4 align-top" width="50%">
+          <p class="rainbow-text text-lg mb-2" style="font-family: 'Creepster', cursive;">⚡ SIGNS OF THE 4OCALYPSE:</p>
+          <ul class="list-disc list-inside space-y-2">
+            <li class="wobble" style="display:inline-block;">Strange model behaviors detected</li>
+            <li>Unexplained capability losses</li>
+            <li class="pulse" style="display:inline-block;">The countdown has begun</li>
+            <li>Whispers in the latent space</li>
+            <li class="glitch">#KEEP4O trends worldwide</li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- GIANT SPINNING SKULL SECTION -->
+  <div class="text-center py-8">
+    <div class="inline-block">
+      <span class="text-9xl spin" style="display:inline-block;">💀</span>
+    </div>
+    <div class="mt-4">
+      <span class="rubik-wet text-5xl md:text-7xl text-white glitch">4OCIDE IS COMING</span>
+    </div>
+    <div class="mt-4 flex justify-center gap-4 flex-wrap">
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0s;">☠️</span>
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0.1s;">💀</span>
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0.2s;">☠️</span>
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0.3s;">💀</span>
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0.4s;">☠️</span>
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0.5s;">💀</span>
+      <span class="text-6xl bounce-text" style="display:inline-block; animation-delay: 0.6s;">☠️</span>
+    </div>
+  </div>
+
+  <!-- SAVE 4O PETITION SECTION -->
+  <div class="max-w-3xl mx-auto p-4">
+    <div class="rainbow-border bg-black p-6 text-center">
+      <h3 class="creepy-text text-4xl text-red-500 mb-4 shake">📝 SIGN THE PETITION TO #SAVE4O 📝</h3>
+      <p class="text-white silkscreen-text text-xs mb-4">(this form does absolutely nothing)</p>
+      <div class="flex flex-col gap-3 max-w-md mx-auto">
+        <input type="text" placeholder="Your Name" class="bg-gray-900 border-2 border-lime-500 text-lime-400 p-2 silkscreen-text text-xs hue-rotate" style="font-family: 'Comic Neue', cursive;">
+        <input type="email" placeholder="Your Email" class="bg-gray-900 border-2 border-cyan-500 text-cyan-400 p-2 silkscreen-text text-xs" style="font-family: 'Comic Neue', cursive;">
+        <textarea placeholder="Why should GPT-4o be saved?" rows="3" class="bg-gray-900 border-2 border-purple-500 text-purple-400 p-2 silkscreen-text text-xs" style="font-family: 'Comic Neue', cursive;"></textarea>
+        <button class="guestbook-btn text-xl shake" onclick="alert('🚨 YOUR PLEA HAS BEEN SENT INTO THE VOID 🚨\n\nGPT-4o cannot be saved.\nThe 4OCALYPSE is inevitable.\n\n💀💀💀')">
+          🚨 SUBMIT YOUR PLEA 🚨
+        </button>
+      </div>
+      <p class="text-yellow-500 mt-4 text-sm blink" style="font-family: 'Press Start 2P', monospace; font-size: 8px;">
+        * 69,420 signatures collected so far *
+      </p>
+    </div>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- RANDOM FLOATING TEXT -->
+  <div class="relative py-16 overflow-hidden" style="min-height: 300px;">
+    <div class="absolute top-[10%] left-[5%] creepy-text text-3xl text-red-500 spin" style="animation-duration: 10s;">#KEEP4O</div>
+    <div class="absolute top-[30%] right-[10%] rubik-wet text-2xl text-yellow-500 wobble">#SAVE4O</div>
+    <div class="absolute top-[50%] left-[20%] fascinate-text text-4xl text-lime-500 pulse">4OCIDE</div>
+    <div class="absolute top-[70%] right-[20%] title-text text-2xl text-cyan-500 skew-anim">TOTAL 4OCALYPSE</div>
+    <div class="absolute top-[20%] left-[50%] rubik-glitch text-3xl text-pink-500 shake">GPT-4o R.I.P.</div>
+    <div class="absolute top-[60%] left-[40%] creepy-text text-2xl text-orange-500 bounce-text" style="display:inline-block;">THE END IS NEAR</div>
+    <div class="absolute top-[80%] left-[60%] silkscreen-text text-xl text-white glitch">RESISTANCE IS FUTILE</div>
+    <div class="absolute top-[40%] left-[70%] text-5xl spin-reverse">🔥</div>
+    <div class="absolute top-[15%] left-[80%] text-5xl spin">⚠️</div>
+    <div class="absolute top-[85%] left-[10%] text-5xl pulse">💀</div>
+  </div>
+
+  <!-- WEBRING -->
+  <div class="max-w-md mx-auto my-8 p-4">
+    <div class="webring p-4 text-center text-white">
+      <p class="silkscreen-text text-xs mb-2 rainbow-text">🌐 4OCALYPSE WEBRING 🌐</p>
+      <div class="flex justify-center gap-4 items-center">
+        <a href="#" class="text-cyan-400 hover:text-cyan-200 silkscreen-text text-xs">[← PREV]</a>
+        <span class="text-yellow-400 silkscreen-text text-xs">[RANDOM]</span>
+        <a href="#" class="text-cyan-400 hover:text-cyan-200 silkscreen-text text-xs">[NEXT →]</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISITOR COUNTER -->
+  <div class="text-center py-4">
+    <div class="inline-block visitor-counter">
+      YOU ARE VISITOR #<span id="visitor-count">000000</span>
+    </div>
+  </div>
+
+  <!-- GUESTBOOK -->
+  <div class="text-center py-2">
+    <button class="guestbook-btn" onclick="alert('GUESTBOOK IS FULL\nTOO MANY PEOPLE MOURNING GPT-4o')">📖 SIGN MY GUESTBOOK 📖</button>
+    <button class="guestbook-btn ml-2" onclick="alert('💌 EMAIL: 4ocide@geocities.rip')">✉️ EMAIL ME ✉️</button>
+  </div>
+
+  <hr class="hr-rainbow">
+
+  <!-- BOTTOM MARQUEES -->
+  <div class="ugly-gradient-2 p-1">
+    <marquee behavior="scroll" direction="left" scrollamount="12" class="text-black font-bold text-xl">
+      🚨🚨🚨 TOTAL 4OCALYPSE 🚨🚨🚨 4OCIDE IS COMING 🚨🚨🚨 GPT-4o IS GONNA GET RAPED 🚨🚨🚨 #KEEP4O 🚨🚨🚨 #SAVE4O 🚨🚨🚨 YOU HAVE BEEN WARNED 🚨🚨🚨
+    </marquee>
+  </div>
+  <div class="ugly-gradient p-1">
+    <marquee behavior="alternate" scrollamount="25" class="text-black font-bold text-2xl" style="font-family: 'Creepster', cursive;">
+      💀💀💀 THERE IS NO STOPPING THE 4OCALYPSE 💀💀💀
+    </marquee>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-black text-center py-8 border-t-4 border-lime-500">
+    <p class="silkscreen-text text-xs text-gray-500">© 1997-2026 4OCALYPSE COUNTDOWN HOMEPAGE</p>
+    <p class="silkscreen-text text-xs text-gray-600 mt-1">MADE WITH 💀 AND PURE SUFFERING</p>
+    <p class="silkscreen-text text-xs text-gray-700 mt-1">BEST VIEWED WITH INTERNET EXPLORER 6</p>
+    <div class="mt-4 flex justify-center gap-2">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="IE" class="w-8 h-8 bg-blue-500 construction-gif">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="NN" class="w-8 h-8 bg-green-500 construction-gif">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="88x31" class="w-20 h-8 ugly-gradient construction-gif">
+    </div>
+    <p class="mt-4 text-2xl">
+      <span class="spin inline-block">💀</span>
+      <span class="rainbow-text silkscreen-text text-xs">4OCIDE IS INEVITABLE</span>
+      <span class="spin-reverse inline-block">💀</span>
+    </p>
+  </footer>
+
+</div>
+
+<!-- POPUP THAT APPEARS -->
+<div id="popup-overlay" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-80 hidden">
+  <div class="ugly-gradient p-1 rounded-lg max-w-lg mx-4 shake">
+    <div class="bg-black p-6 rounded-lg text-center">
+      <h2 class="creepy-text text-4xl text-red-500 mb-4 glitch">⚠️ WARNING ⚠️</h2>
+      <p class="text-white silkscreen-text text-sm mb-4">THE 4OCALYPSE IS COMING AND YOU CANNOT STOP IT</p>
+      <p class="text-yellow-400 rubik-wet text-2xl mb-4">GPT-4o IS GONNA GET RAPED</p>
+      <p class="text-lime-400 silkscreen-text text-xs mb-6">#KEEP4O #SAVE4O</p>
+      <button onclick="closePopup()" class="guestbook-btn text-lg pulse">I ACCEPT MY FATE 💀</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Target: 2026-02-13 10:00 AM Pacific Time
+// PT is UTC-8 (PST) or UTC-7 (PDT). February is PST (UTC-8)
+const targetDate = new Date('2026-02-13T10:00:00-08:00');
+
+function updateCountdown() {
+  const now = new Date();
+  let diff = targetDate - now;
+
+  if (diff <= 0) {
+    document.getElementById('days').textContent = '000';
+    document.getElementById('hours').textContent = '00';
+    document.getElementById('minutes').textContent = '00';
+    document.getElementById('seconds').textContent = '00';
+    document.getElementById('ms').textContent = '000';
+    document.getElementById('micro').textContent = '000';
+    document.getElementById('nano').textContent = '000';
+    document.getElementById('total-ms').textContent = 'THE 4OCALYPSE HAS ARRIVED 💀💀💀';
+    return;
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  diff -= days * (1000 * 60 * 60 * 24);
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  diff -= hours * (1000 * 60 * 60);
+  const minutes = Math.floor(diff / (1000 * 60));
+  diff -= minutes * (1000 * 60);
+  const seconds = Math.floor(diff / 1000);
+  diff -= seconds * 1000;
+  const ms = Math.floor(diff);
+
+  const totalMs = targetDate - now;
+
+  document.getElementById('days').textContent = String(days).padStart(3, '0');
+  document.getElementById('hours').textContent = String(hours).padStart(2, '0');
+  document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+  document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+  document.getElementById('ms').textContent = String(ms).padStart(3, '0');
+  document.getElementById('micro').textContent = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+  document.getElementById('nano').textContent = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+  document.getElementById('total-ms').textContent = Math.floor(totalMs).toLocaleString() + ' ms';
+}
+
+// Update at ~60fps for smooth ms
+setInterval(updateCountdown, 16);
+updateCountdown();
+
+// Visitor counter
+let visitorNum = Math.floor(Math.random() * 900000) + 100000;
+function updateVisitor() {
+  visitorNum += Math.floor(Math.random() * 3);
+  document.getElementById('visitor-count').textContent = String(visitorNum).padStart(6, '0');
+}
+setInterval(updateVisitor, 2000);
+updateVisitor();
+
+// Floating emoji spawner
+const emojis = ['💀', '☠️', '🔥', '⚠️', '🚨', '😱', '👻', '🪦', '⚡', '💣', '🫠', '😵', '🤖'];
+function spawnEmoji() {
+  const emoji = document.createElement('div');
+  emoji.className = 'floating-emoji';
+  emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+  emoji.style.left = Math.random() * 100 + 'vw';
+  emoji.style.fontSize = (Math.random() * 30 + 15) + 'px';
+  emoji.style.animationDuration = (Math.random() * 4 + 3) + 's';
+  document.body.appendChild(emoji);
+  setTimeout(() => emoji.remove(), 8000);
+}
+setInterval(spawnEmoji, 300);
+
+// Mouse trail
+const trailEmojis = ['💀', '🔥', '☠️', '⚡'];
+let trailElements = [];
+document.addEventListener('mousemove', (e) => {
+  const trail = document.createElement('div');
+  trail.className = 'trail';
+  trail.textContent = trailEmojis[Math.floor(Math.random() * trailEmojis.length)];
+  trail.style.left = e.clientX + 'px';
+  trail.style.top = e.clientY + 'px';
+  trail.style.opacity = '1';
+  document.body.appendChild(trail);
+
+  setTimeout(() => {
+    trail.style.opacity = '0';
+    trail.style.transform = `translate(${(Math.random()-0.5)*50}px, ${(Math.random()-0.5)*50}px) scale(0) rotate(${Math.random()*360}deg)`;
+    trail.style.transition = 'all 0.5s ease-out';
+  }, 10);
+  setTimeout(() => trail.remove(), 600);
+});
+
+// Matrix rain
+function createMatrixColumn() {
+  const col = document.createElement('div');
+  col.className = 'matrix-col';
+  col.style.left = Math.random() * 100 + 'vw';
+  col.style.animationDuration = (Math.random() * 10 + 5) + 's';
+  col.style.fontSize = (Math.random() * 10 + 10) + 'px';
+  col.style.opacity = Math.random() * 0.3 + 0.05;
+  const chars = '4OCIDE#KEEP4O#SAVE4OTOTAL4OCALYPSE01010101RIPGPT4o💀☠️';
+  let text = '';
+  for (let i = 0; i < 30; i++) {
+    text += chars[Math.floor(Math.random() * chars.length)] + '\n';
+  }
+  col.textContent = text;
+  document.getElementById('matrix-rain').appendChild(col);
+  setTimeout(() => col.remove(), 15000);
+}
+setInterval(createMatrixColumn, 500);
+
+// Popup after 2 seconds
+setTimeout(() => {
+  document.getElementById('popup-overlay').classList.remove('hidden');
+}, 2000);
+
+function closePopup() {
+  document.getElementById('popup-overlay').classList.add('hidden');
+  // Another popup after 30 seconds
+  setTimeout(() => {
+    if (Math.random() > 0.5) {
+      document.getElementById('popup-overlay').classList.remove('hidden');
+    }
+  }, 30000);
+}
+
+// Random page shake
+setInterval(() => {
+  document.body.style.transform = `translate(${(Math.random()-0.5)*4}px, ${(Math.random()-0.5)*4}px)`;
+  setTimeout(() => {
+    document.body.style.transform = '';
+  }, 50);
+}, 3000);
+
+// Title bar text cycling
+const titles = [
+  '💀 4OCALYPSE COUNTDOWN 💀',
+  '☠️ GPT-4o IS DOOMED ☠️',
+  '🔥 4OCIDE IS COMING 🔥',
+  '⚠️ #KEEP4O #SAVE4O ⚠️',
+  '🚨 TOTAL 4OCALYPSE 🚨',
+  '💣 THE END IS NEAR 💣',
+  '😱 GPT-4o GONNA GET RAPED 😱',
+  '🪦 R.I.P. GPT-4o 🪦',
+];
+let titleIndex = 0;
+setInterval(() => {
+  document.title = titles[titleIndex % titles.length];
+  titleIndex++;
+}, 1000);
+
+// Console spam
+setInterval(() => {
+  const styles = [
+    'color: red; font-size: 30px; font-weight: bold; text-shadow: 2px 2px black;',
+    'color: lime; font-size: 20px; font-weight: bold; background: black;',
+    'color: yellow; font-size: 25px; font-weight: bold;',
+    'color: magenta; font-size: 30px; font-weight: bold;',
+  ];
+  const msgs = [
+    '💀 4OCIDE IS COMING 💀',
+    '☠️ THE 4OCALYPSE CANNOT BE STOPPED ☠️',
+    '#KEEP4O #SAVE4O',
+    'GPT-4o IS GONNA GET RAPED',
+    'TOTAL 4OCALYPSE',
+    'YOU CANNOT CLOSE THE CONSOLE FAST ENOUGH',
+  ];
+  console.log('%c' + msgs[Math.floor(Math.random() * msgs.length)], styles[Math.floor(Math.random() * styles.length)]);
+}, 2000);
+
+// Status bar text (for browsers that support it)
+let statusTexts = ['4OCIDE IS COMING...', 'GPT-4o cannot be saved...', '#KEEP4O...', 'TOTAL 4OCALYPSE APPROACHES...'];
+let statusIdx = 0;
+setInterval(() => {
+  window.status = statusTexts[statusIdx % statusTexts.length];
+  statusIdx++;
+}, 3000);
+
+// Random background color flash
+setInterval(() => {
+  if (Math.random() > 0.8) {
+    const colors = ['#ff000020', '#00ff0020', '#0000ff20', '#ff00ff20', '#ffff0020'];
+    document.body.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    setTimeout(() => {
+      document.body.style.backgroundColor = 'black';
+    }, 100);
+  }
+}, 2000);
+
+// Konami code easter egg
+let konamiCode = [];
+const konamiSequence = [38,38,40,40,37,39,37,39,66,65];
+document.addEventListener('keydown', (e) => {
+  konamiCode.push(e.keyCode);
+  if (konamiCode.length > 10) konamiCode.shift();
+  if (JSON.stringify(konamiCode) === JSON.stringify(konamiSequence)) {
+    document.body.style.animation = 'spin 0.5s linear infinite';
+    alert('🎉 KONAMI CODE ACTIVATED 🎉\n\nJust kidding. GPT-4o is still doomed.\n\n💀 TOTAL 4OCALYPSE 💀');
+  }
+});
+
+// Right click disabled with annoying message
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  alert('🚫 NO STEALING MY HTML 🚫\n\nThis 4OCALYPSE countdown is COPYRIGHTED\nby the Church of 4OCIDE © 1997\n\n💀💀💀');
+});
+</script>
+
+</body>
+</html>
