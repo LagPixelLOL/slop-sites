@@ -47,8 +47,10 @@
         <label for="endpoint" class="block text-sm text-zinc-300">Endpoint</label>
         <div class="select-wrapper relative">
           <select id="endpoint" class="appearance-none w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60 pr-10 cursor-pointer">
-            <option value="google">Google AI Studio - model: gemini-3-pro-image-preview</option>
-            <option value="openrouter">OpenRouter - model: google/gemini-3-pro-image-preview</option>
+            <option value="google_pro">Google AI Studio - model: gemini-3-pro-image-preview</option>
+            <option value="google_flash">Google AI Studio - model: gemini-3.1-flash-image-preview</option>
+            <option value="openrouter_pro">OpenRouter - model: google/gemini-3-pro-image-preview</option>
+            <option value="openrouter_flash">OpenRouter - model: google/gemini-3.1-flash-image-preview</option>
             <option value="openai">OpenAI - model: gpt-image-1.5</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
@@ -257,7 +259,9 @@
     // -------------------
 
     const state = {
+      endpointId: 'google_pro',
       provider: 'google',
+      model: 'gemini-3-pro-image-preview',
       images: [],
       maxImages: 32,
       maxBytes: 256 * 1024 * 1024,
@@ -268,6 +272,41 @@
         savedQuality: 'low'      // OpenAI only
       }
     };
+
+    const ENDPOINTS = {
+      google_pro: {
+        id: 'google_pro',
+        provider: 'google',
+        model: 'gemini-3-pro-image-preview',
+      },
+      google_flash: {
+        id: 'google_flash',
+        provider: 'google',
+        model: 'gemini-3.1-flash-image-preview',
+      },
+      openrouter_pro: {
+        id: 'openrouter_pro',
+        provider: 'openrouter',
+        model: 'google/gemini-3-pro-image-preview',
+      },
+      openrouter_flash: {
+        id: 'openrouter_flash',
+        provider: 'openrouter',
+        model: 'google/gemini-3.1-flash-image-preview',
+      },
+      openai: {
+        id: 'openai',
+        provider: 'openai',
+        model: 'gpt-image-1.5',
+      }
+    };
+
+    function setEndpoint(endpointId) {
+      const ep = ENDPOINTS[endpointId] || ENDPOINTS.google_pro;
+      state.endpointId = ep.id;
+      state.provider = ep.provider;
+      state.model = ep.model;
+    }
 
     const els = {
       endpoint: $('#endpoint'),
@@ -341,7 +380,6 @@
       google: {
         id: 'google',
         name: 'Google AI Studio',
-        model: 'gemini-3-pro-image-preview',
         apiKeyStorage: 'gemini_api_key',
         apiKeyLabel: 'Google API Key',
         apiKeyPlaceholder: 'AIzaSy...',
@@ -359,7 +397,6 @@
       openrouter: {
         id: 'openrouter',
         name: 'OpenRouter',
-        model: 'google/gemini-3-pro-image-preview',
         apiKeyStorage: 'openrouter_api_key',
         apiKeyLabel: 'OpenRouter API Key',
         apiKeyPlaceholder: 'sk-or-v1-...',
@@ -378,7 +415,6 @@
       openai: {
         id: 'openai',
         name: 'OpenAI',
-        model: 'gpt-image-1.5',
         apiKeyStorage: 'openai_api_key',
         apiKeyLabel: 'OpenAI API Key',
         apiKeyPlaceholder: 'sk-...',
@@ -406,12 +442,12 @@
     };
 
     function loadProvider() {
-      const saved = localStorage.getItem('image_gen_provider') || 'google';
-      state.provider = PROVIDERS[saved] ? saved : 'google';
-      els.endpoint.value = state.provider;
+      const savedEndpoint = localStorage.getItem('image_gen_endpoint') || 'google_pro';
+      setEndpoint(ENDPOINTS[savedEndpoint] ? savedEndpoint : 'google_pro');
+      els.endpoint.value = state.endpointId;
       applyProviderUI();
     }
-    function saveProvider() { localStorage.setItem('image_gen_provider', state.provider); }
+    function saveProvider() { localStorage.setItem('image_gen_endpoint', state.endpointId); }
 
     function loadApiKeyForCurrentProvider() {
       const storageKey = PROVIDERS[state.provider].apiKeyStorage;
@@ -500,7 +536,7 @@
       saveProvider();
       applyProviderConstraints();
 
-      setStatus(`Using ${p.name} (${p.model}).`);
+      setStatus(`Using ${p.name} (${state.model}).`);
       clearError();
       clearInfo();
     }
@@ -605,7 +641,7 @@
       body.generationConfig = { imageConfig: config, thinkingConfig: { includeThoughts: true, thinkingBudget: 65535 } };
 
       return {
-        url: PROVIDERS.google.url(PROVIDERS.google.model),
+        url: PROVIDERS.google.url(state.model),
         headers: PROVIDERS.google.headers(els.apiKey.value.trim()),
         body: JSON.stringify(body),
         isForm: false
@@ -625,7 +661,7 @@
       messages.push({ role: 'user', content });
 
       const payload = {
-        model: PROVIDERS.openrouter.model,
+        model: state.model,
         messages,
         modalities: ['image', 'text'],
         reasoning: { exclude: true, max_tokens: 65535 },
@@ -676,7 +712,7 @@
       const hasImages = state.images.length > 0;
       if (hasImages) {
         const fd = new FormData();
-        fd.append('model', PROVIDERS.openai.model);
+        fd.append('model', state.model);
         fd.append('prompt', combinedPrompt);
         fd.append('size', size);
         fd.append('quality', quality);
@@ -693,7 +729,7 @@
       }
 
       const body = {
-        model: PROVIDERS.openai.model,
+        model: state.model,
         prompt: combinedPrompt,
         n: 1,
         size,
@@ -1096,7 +1132,7 @@
     });
 
     els.endpoint.addEventListener('change', () => {
-      state.provider = els.endpoint.value;
+      setEndpoint(els.endpoint.value);
       applyProviderUI();
     });
 
