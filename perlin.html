@@ -13,7 +13,7 @@
       background-size: cover;
       background-repeat: no-repeat;
       background-attachment: fixed;
-      transition: background-image 200ms ease, background-color 200ms ease;
+      transition: background-image 100ms ease, background-color 100ms ease;
     }
     body.bg-image {
       background-color: #000;
@@ -55,151 +55,128 @@
   </div>
 
   <script type="module">
-    let canvas = document.getElementById("c");
-    const statusEl = document.getElementById("status");
-    const toggleModeBtn = document.getElementById("toggleMode");
-    const toggleBgBtn = document.getElementById("toggleBg");
+    /* ============================================
+       createPerlinAnimation - self-contained factory
+       ============================================ */
+    function createPerlinAnimation(initialCanvas, options = {}) {
 
-    let currentMode = null;
-    let rafId = 0;
-    let activeConfigure = null;
-    let bgMode = "black";
+      /* --- Mutable canvas reference (may be swapped on mode switch) --- */
+      let canvas = initialCanvas;
 
-    const modes = ["webgpu", "webgl"];
-
-    let caContrast = 1;
-    let caSamples = 32;
-    let caSpread = 0.025;
-    let caCenterX = 0.5;
-    let caCenterY = 0.5;
-
-    function getCAParams() {
-      let samples = Math.round(caSamples);
-      samples = Math.max(2, samples);
-      if (samples % 2 !== 0) samples = samples + 1;
-      return {
-        contrast: caContrast,
-        samples,
-        spread: caSpread,
-        centerX: caCenterX,
-        centerY: caCenterY,
+      /* --- Instance state (defaults merged with caller options) --- */
+      const state = {
+        color:      options.color      ?? "#ffffff",
+        opacity:    options.opacity    ?? 1,
+        scale:      options.scale      ?? 1,
+        x:          options.x          ?? 42,
+        y:          options.y          ?? 42,
+        caContrast: options.caContrast ?? 1,
+        caSamples:  options.caSamples  ?? 32,
+        caSpread:   options.caSpread   ?? 0.025,
+        caCenterX:  options.caCenterX  ?? 0.5,
+        caCenterY:  options.caCenterY  ?? 0.5,
+        forceMode:  options.forceMode  ?? null,
       };
-    }
 
-    function setStatus(msg) {
-      statusEl.textContent = msg || "";
-    }
+      /* --- Constants --- */
+      const BASE_SCALE = 8.0;
+      const SPEED_Z    = 0.25;
 
-    function replaceCanvas() {
-      const newCanvas = document.createElement("canvas");
-      newCanvas.id = "c";
-      canvas.replaceWith(newCanvas);
-      canvas = newCanvas;
-      return canvas;
-    }
+      /* --- Helpers --- */
+      const parseHexColor = (hex) => {
+        let h = hex.replace("#", "");
+        if (h.length === 3) h = h.split("").map(c => c + c).join("");
+        const num = parseInt(h, 16);
+        return [
+          ((num >> 16) & 255) / 255,
+          ((num >> 8) & 255) / 255,
+          (num & 255) / 255,
+        ];
+      };
 
-    function stopActive() {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = 0;
-      activeConfigure = null;
-    }
+      const normalizeCASamples = (value) => {
+        let s = Math.round(value);
+        s = Math.max(2, s);
+        if (s % 2 !== 0) s += 1;
+        return s;
+      };
 
-    function nextMode(current) {
-      const idx = modes.indexOf(current);
-      return modes[(idx + 1) % modes.length];
-    }
-
-    function modeLabel(m) {
-      if (m === "webgpu") return "WebGPU";
-      if (m === "webgl") return "WebGL";
-      return m;
-    }
-
-    function updateModeButtonLabel() {
-      const next = nextMode(currentMode);
-      toggleModeBtn.textContent = `Switch to ${modeLabel(next)}`;
-    }
-
-    function updateBgButtonLabel() {
-      toggleBgBtn.textContent = bgMode === "image" ? "Background: Image" : "Background: Black";
-    }
-
-    function applyBackground() {
-      if (bgMode === "image") document.body.classList.add("bg-image");
-      else document.body.classList.remove("bg-image");
-      updateBgButtonLabel();
-      updateStatusLine();
-    }
-
-    function updateStatusLine(extra = "") {
-      const modeText = currentMode ? `Mode: ${modeLabel(currentMode)}` : "Mode: (starting...)";
-      const bgText = `Background: ${bgMode === "image" ? "Image" : "Black"}`;
-      setStatus([modeText, bgText, extra].filter(Boolean).join(" - "));
-    }
-
-    window.addEventListener("resize", () => activeConfigure && activeConfigure(), { passive: true });
-
-    async function start(mode) {
-      stopActive();
-      replaceCanvas();
-
-      if (mode === "webgpu") {
-        if (!navigator.gpu) {
-          return await start("webgl");
-        }
-        try {
-          await startWebGPU();
-          currentMode = "webgpu";
-          updateModeButtonLabel();
-          updateStatusLine();
-        } catch (e) {
-          console.warn("WebGPU init failed:", e);
-          return await start("webgl");
-        }
-      } else if (mode === "webgl") {
-        try {
-          await startWebGL();
-          currentMode = "webgl";
-          updateModeButtonLabel();
-          updateStatusLine();
-        } catch (e) {
-          console.warn("WebGL init failed:", e);
-          updateStatusLine("No supported rendering backend found.");
-        }
+      function getCAParams() {
+        return {
+          contrast: state.caContrast,
+          samples:  normalizeCASamples(state.caSamples),
+          spread:   state.caSpread,
+          centerX:  state.caCenterX,
+          centerY:  state.caCenterY,
+        };
       }
-    }
 
-    toggleModeBtn.addEventListener("click", async () => {
-      const next = nextMode(currentMode);
-      await start(next);
-    });
+      function getScaleParams() {
+        const userScale = Math.max(state.scale, 0.001);
+        return {
+          finalScale: BASE_SCALE / userScale,
+          adjustedX:  state.x * userScale,
+          adjustedY:  state.y * userScale,
+        };
+      }
 
-    toggleBgBtn.addEventListener("click", () => {
-      bgMode = (bgMode === "black") ? "image" : "black";
-      applyBackground();
-    });
+      function getColorRgb() {
+        return parseHexColor(state.color);
+      }
 
-    async function startWebGPU() {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (!adapter) throw new Error("No GPU adapter found");
+      /* --- Internal bookkeeping --- */
+      let currentMode     = null;
+      let rafId           = 0;
+      let activeConfigure = null;
+      let destroyed       = false;
+      let canvasTainted   = false;   // has a context been requested on this canvas?
 
-      const device = await adapter.requestDevice();
+      const modes = ["webgpu", "webgl"];
 
-      const context = canvas.getContext("webgpu");
-      if (!context) throw new Error("Failed to acquire WebGPU canvas context");
+      const resizeHandler = () => activeConfigure && activeConfigure();
+      window.addEventListener("resize", resizeHandler, { passive: true });
 
-      const format = navigator.gpu.getPreferredCanvasFormat();
+      function stopActive() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = 0;
+        activeConfigure = null;
+      }
 
-      const uniformBuffer = device.createBuffer({
-        size: 48,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
+      /* --- Replace the canvas element so we get a fresh context --- */
+      function replaceCanvas() {
+        const parent = canvas.parentNode;
+        if (!parent) return;
+        const fresh = document.createElement("canvas");
+        fresh.id = canvas.id;
+        parent.replaceChild(fresh, canvas);
+        canvas = fresh;
+        canvasTainted = false;
+      }
 
-      const shaderCode = /* wgsl */`
+      /* ============================================
+         WebGPU Backend
+         ============================================ */
+      async function startWebGPU() {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error("No GPU adapter found");
+        const device = await adapter.requestDevice();
+
+        const context = canvas.getContext("webgpu");
+        if (!context) throw new Error("Failed to acquire WebGPU canvas context");
+
+        const format = navigator.gpu.getPreferredCanvasFormat();
+
+        const uniformBuffer = device.createBuffer({
+          size: 64,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        const shaderCode = /* wgsl */`
 struct Uniforms {
-  params0 : vec4<f32>, // width, height, time, scale
-  params1 : vec4<f32>, // speedZ, caContrast, caSamples, caSpread
-  params2 : vec4<f32>, // caCenterX, caCenterY, _, _
+  params0 : vec4<f32>,
+  params1 : vec4<f32>,
+  params2 : vec4<f32>,
+  params3 : vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> U : Uniforms;
@@ -289,29 +266,28 @@ fn perlin3(p: vec3<f32>) -> f32 {
   let nxy0 = lerp1(nx00, nx10, v);
   let nxy1 = lerp1(nx01, nx11, v);
 
-  let nxyz = lerp1(nxy0, nxy1, w);
-
-  let scaled = nxyz * 1.2;
-  return clamp(scaled, -1.0, 1.0);
+  return clamp(lerp1(nxy0, nxy1, w) * 1.2, -1.0, 1.0);
 }
 
 fn perlinAlphaAtUV(uv: vec2<f32>) -> f32 {
-  let width = U.params0.x;
-  let height = U.params0.y;
-  let time = U.params0.z;
-  let scale = U.params0.w;
-  let speedZ = U.params1.x;
+  let width   = U.params0.x;
+  let height  = U.params0.y;
+  let time    = U.params0.z;
+  let scale   = U.params0.w;
+  let speedZ  = U.params1.x;
+  let offsetX = U.params1.z;
+  let offsetY = U.params1.w;
 
   let minDim = min(width, height);
   let fragXY = uv * vec2<f32>(width, height);
-  let xy = (fragXY - 0.5 * vec2<f32>(width, height)) / minDim + vec2<f32>(42.0, 42.0);
+  let xy = (fragXY - 0.5 * vec2<f32>(width, height)) / minDim + vec2<f32>(offsetX, offsetY);
 
   let phase = perlin3(vec3<f32>(xy * (scale * 0.15) + vec2<f32>(5.2, -3.7), 0.0));
   let z = time * speedZ + phase * 3.5;
   let p = vec3<f32>(xy * scale + vec2<f32>(17.3, -9.1), z);
 
   let eps = 0.02;
-  let nPlus = perlin3(p + vec3<f32>(0.0, 0.0, eps));
+  let nPlus  = perlin3(p + vec3<f32>(0.0, 0.0, eps));
   let nMinus = perlin3(p - vec3<f32>(0.0, 0.0, eps));
   let dndz = (nPlus - nMinus) / (2.0 * eps);
 
@@ -320,56 +296,44 @@ fn perlinAlphaAtUV(uv: vec2<f32>) -> f32 {
 }
 
 fn chromaticFromTexture(uv: vec2<f32>) -> vec4<f32> {
-  let caContrast = U.params1.y;
-  let caSamplesF = U.params1.z;
-  let caSpread = U.params1.w;
-  let caCenter = U.params2.xy;
+  let caContrast = U.params2.x;
+  let caSamplesF = U.params2.y;
+  let caSpread   = U.params2.z;
+  let caCenter   = vec2<f32>(U.params2.w, U.params3.x);
 
   let sampleCount = max(2, i32(floor(caSamplesF + 0.5)));
   let denom = max(f32(sampleCount - 1), 1.0);
 
-  var colorSum = vec3<f32>(0.0, 0.0, 0.0);
-  var weightSum = vec3<f32>(0.0, 0.0, 0.0);
-  var alphaSum = 0.0;
+  var colorSum       = vec3<f32>(0.0);
+  var weightSum      = vec3<f32>(0.0);
+  var alphaSum       = 0.0;
   var alphaWeightSum = 0.0;
 
   for (var si: i32 = 0; si < sampleCount; si = si + 1) {
     let i = f32(si) / denom;
     let offset = (i - 0.5) * caSpread;
-    let coord = clamp(
-      uv + (caCenter - uv) * offset,
-      vec2<f32>(0.0, 0.0),
-      vec2<f32>(1.0, 1.0)
-    );
+    let coord = clamp(uv + (caCenter - uv) * offset, vec2<f32>(0.0), vec2<f32>(1.0));
 
     let a = textureSampleLevel(noiseTex, noiseSampler, coord, 0.0).r;
 
     var weight = vec4<f32>(i, 1.0 - abs(i + i - 1.0), 1.0 - i, 0.5);
-    weight = vec4<f32>(0.5, 0.5, 0.5, 0.5) + (weight - vec4<f32>(0.5, 0.5, 0.5, 0.5)) * caContrast;
+    weight = vec4<f32>(0.5) + (weight - vec4<f32>(0.5)) * caContrast;
 
-    colorSum += vec3<f32>(a * a, a * a, a * a) * weight.rgb;
+    colorSum  += vec3<f32>(a * a) * weight.rgb;
     weightSum += weight.rgb;
-    alphaSum += a * a * weight.a;
+    alphaSum       += a * a * weight.a;
     alphaWeightSum += weight.a;
   }
 
-  let colorAvg = clamp(
-    colorSum / max(weightSum, vec3<f32>(1e-4, 1e-4, 1e-4)),
-    vec3<f32>(0.0, 0.0, 0.0),
-    vec3<f32>(1.0, 1.0, 1.0)
-  );
+  let colorAvg = clamp(colorSum / max(weightSum, vec3<f32>(1e-4)), vec3<f32>(0.0), vec3<f32>(1.0));
   let alphaAvg = clamp(alphaSum / max(alphaWeightSum, 1e-4), 0.0, 1.0);
 
   let color = sqrt(colorAvg);
   let alpha = sqrt(alphaAvg);
-  let premul = min(color, vec3<f32>(alpha, alpha, alpha));
-
-  return vec4<f32>(premul, alpha);
+  return vec4<f32>(min(color, vec3<f32>(alpha)), alpha);
 }
 
-struct VSOut {
-  @builtin(position) pos : vec4<f32>,
-};
+struct VSOut { @builtin(position) pos : vec4<f32> };
 
 @vertex
 fn vsMain(@builtin(vertex_index) vid: u32) -> VSOut {
@@ -392,514 +356,583 @@ fn fsNoise(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
 
 @fragment
 fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
-  let uv = fragPos.xy / vec2<f32>(U.params0.x, U.params0.y);
-  return chromaticFromTexture(uv);
+  let width     = U.params0.x;
+  let height    = U.params0.y;
+  let opacity   = U.params1.y;
+  let baseColor = U.params3.yzw;
+
+  let uv    = fragPos.xy / vec2<f32>(width, height);
+  let chroma = chromaticFromTexture(uv);
+
+  let finalAlpha = chroma.a * opacity;
+  let finalRgb   = chroma.rgb * baseColor * opacity;
+  return vec4<f32>(finalRgb, finalAlpha);
 }
 `;
 
-      const module = device.createShaderModule({ code: shaderCode });
+        const module = device.createShaderModule({ code: shaderCode });
 
-      const uniformBindGroupLayout = device.createBindGroupLayout({
-        entries: [
-          { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
-        ],
-      });
-
-      const sampleBindGroupLayout = device.createBindGroupLayout({
-        entries: [
-          { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "filtering" } },
-          { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "float" } },
-        ],
-      });
-
-      const noisePipeline = device.createRenderPipeline({
-        layout: device.createPipelineLayout({ bindGroupLayouts: [uniformBindGroupLayout] }),
-        vertex: { module, entryPoint: "vsMain" },
-        fragment: { module, entryPoint: "fsNoise", targets: [{ format: "rgba8unorm" }] },
-        primitive: { topology: "triangle-list" },
-      });
-
-      const compositePipeline = device.createRenderPipeline({
-        layout: device.createPipelineLayout({ bindGroupLayouts: [uniformBindGroupLayout, sampleBindGroupLayout] }),
-        vertex: { module, entryPoint: "vsMain" },
-        fragment: { module, entryPoint: "fsComposite", targets: [{ format }] },
-        primitive: { topology: "triangle-list" },
-      });
-
-      const uniformBindGroup = device.createBindGroup({
-        layout: uniformBindGroupLayout,
-        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
-      });
-
-      const sampler = device.createSampler({
-        magFilter: "linear",
-        minFilter: "linear",
-        mipmapFilter: "linear",
-        addressModeU: "clamp-to-edge",
-        addressModeV: "clamp-to-edge",
-      });
-
-      let offscreenTexture = null;
-      let offscreenView = null;
-      let sampleBindGroup = null;
-      let configured = false;
-      let offscreenW = 0;
-      let offscreenH = 0;
-
-      function ensureOffscreen(w, h) {
-        if (offscreenTexture && offscreenW === w && offscreenH === h) return;
-
-        if (offscreenTexture) offscreenTexture.destroy();
-
-        offscreenTexture = device.createTexture({
-          size: [w, h],
-          format: "rgba8unorm",
-          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-        });
-
-        offscreenView = offscreenTexture.createView();
-        sampleBindGroup = device.createBindGroup({
-          layout: sampleBindGroupLayout,
+        const uniformBGL = device.createBindGroupLayout({
           entries: [
-            { binding: 0, resource: sampler },
-            { binding: 1, resource: offscreenView },
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
           ],
         });
 
-        offscreenW = w;
-        offscreenH = h;
-      }
+        const sampleBGL = device.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "filtering" } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "float" } },
+          ],
+        });
 
-      function configure() {
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
-        const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-        const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
-        const resized = canvas.width !== w || canvas.height !== h;
+        const noisePipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [uniformBGL] }),
+          vertex:   { module, entryPoint: "vsMain" },
+          fragment: { module, entryPoint: "fsNoise", targets: [{ format: "rgba8unorm" }] },
+          primitive: { topology: "triangle-list" },
+        });
 
-        if (resized) {
-          canvas.width = w;
-          canvas.height = h;
-        }
+        const compositePipeline = device.createRenderPipeline({
+          layout: device.createPipelineLayout({ bindGroupLayouts: [uniformBGL, sampleBGL] }),
+          vertex:   { module, entryPoint: "vsMain" },
+          fragment: { module, entryPoint: "fsComposite", targets: [{ format }] },
+          primitive: { topology: "triangle-list" },
+        });
 
-        if (resized || !configured) {
-          context.configure({
-            device,
-            format,
-            alphaMode: "premultiplied",
+        const uniformBG = device.createBindGroup({
+          layout: uniformBGL,
+          entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+        });
+
+        const sampler = device.createSampler({
+          magFilter: "linear", minFilter: "linear", mipmapFilter: "linear",
+          addressModeU: "clamp-to-edge", addressModeV: "clamp-to-edge",
+        });
+
+        let offTex = null, offView = null, sampleBG = null;
+        let configured = false, offW = 0, offH = 0;
+
+        function ensureOffscreen(w, h) {
+          if (offTex && offW === w && offH === h) return;
+          if (offTex) offTex.destroy();
+          offTex = device.createTexture({
+            size: [w, h], format: "rgba8unorm",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
           });
-          ensureOffscreen(w, h);
-          configured = true;
+          offView = offTex.createView();
+          sampleBG = device.createBindGroup({
+            layout: sampleBGL,
+            entries: [
+              { binding: 0, resource: sampler },
+              { binding: 1, resource: offView },
+            ],
+          });
+          offW = w; offH = h;
         }
-      }
 
-      activeConfigure = configure;
-      configure();
+        function configure() {
+          const dpr = Math.max(1, window.devicePixelRatio || 1);
+          const w = Math.max(1, Math.floor(canvas.clientWidth  * dpr));
+          const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+          const resized = canvas.width !== w || canvas.height !== h;
+          if (resized) { canvas.width = w; canvas.height = h; }
+          if (resized || !configured) {
+            context.configure({ device, format, alphaMode: "premultiplied" });
+            ensureOffscreen(w, h);
+            configured = true;
+          }
+        }
 
-      const scale = 8.0;
-      const speedZ = 0.25;
-
-      function frame(tMs) {
+        activeConfigure = configure;
         configure();
 
-        const t = tMs * 0.001;
-        const w = canvas.width;
-        const h = canvas.height;
-        const ca = getCAParams();
+        function frame(tMs) {
+          if (destroyed) return;
+          configure();
 
-        device.queue.writeBuffer(
-          uniformBuffer,
-          0,
-          new Float32Array([
-            w, h, t, scale,
-            speedZ, ca.contrast, ca.samples, ca.spread,
-            ca.centerX, ca.centerY, 0, 0
-          ])
-        );
+          const t  = tMs * 0.001;
+          const w  = canvas.width;
+          const h  = canvas.height;
+          const sp = getScaleParams();
+          const ca = getCAParams();
+          const [cr, cg, cb] = getColorRgb();
 
-        const encoder = device.createCommandEncoder();
+          device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([
+            w, h, t, sp.finalScale,
+            SPEED_Z, state.opacity, sp.adjustedX, sp.adjustedY,
+            ca.contrast, ca.samples, ca.spread, ca.centerX,
+            ca.centerY, cr, cg, cb,
+          ]));
 
-        const noisePass = encoder.beginRenderPass({
-          colorAttachments: [{
-            view: offscreenView,
-            loadOp: "clear",
-            storeOp: "store",
-            clearValue: { r: 0, g: 0, b: 0, a: 1 },
-          }],
-        });
+          const encoder = device.createCommandEncoder();
 
-        noisePass.setPipeline(noisePipeline);
-        noisePass.setBindGroup(0, uniformBindGroup);
-        noisePass.draw(3);
-        noisePass.end();
+          const noisePass = encoder.beginRenderPass({
+            colorAttachments: [{
+              view: offView, loadOp: "clear", storeOp: "store",
+              clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            }],
+          });
+          noisePass.setPipeline(noisePipeline);
+          noisePass.setBindGroup(0, uniformBG);
+          noisePass.draw(3);
+          noisePass.end();
 
-        const compositePass = encoder.beginRenderPass({
-          colorAttachments: [{
-            view: context.getCurrentTexture().createView(),
-            loadOp: "clear",
-            storeOp: "store",
-            clearValue: { r: 0, g: 0, b: 0, a: 0 },
-          }],
-        });
+          const compPass = encoder.beginRenderPass({
+            colorAttachments: [{
+              view: context.getCurrentTexture().createView(),
+              loadOp: "clear", storeOp: "store",
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            }],
+          });
+          compPass.setPipeline(compositePipeline);
+          compPass.setBindGroup(0, uniformBG);
+          compPass.setBindGroup(1, sampleBG);
+          compPass.draw(3);
+          compPass.end();
 
-        compositePass.setPipeline(compositePipeline);
-        compositePass.setBindGroup(0, uniformBindGroup);
-        compositePass.setBindGroup(1, sampleBindGroup);
-        compositePass.draw(3);
-        compositePass.end();
+          device.queue.submit([encoder.finish()]);
+          rafId = requestAnimationFrame(frame);
+        }
 
-        device.queue.submit([encoder.finish()]);
         rafId = requestAnimationFrame(frame);
       }
 
-      rafId = requestAnimationFrame(frame);
-    }
+      /* ============================================
+         WebGL Backend
+         ============================================ */
+      async function startWebGL() {
+        const gl = canvas.getContext("webgl2", {
+          antialias: false, alpha: true, premultipliedAlpha: true,
+        });
+        if (!gl) throw new Error("WebGL2 not available");
 
-    async function startWebGL() {
-      const gl = canvas.getContext("webgl2", {
-        antialias: false,
-        alpha: true,
-        premultipliedAlpha: true,
-      });
-      if (!gl) throw new Error("WebGL not available");
-
-      function compileShader(type, src) {
-        const sh = gl.createShader(type);
-        gl.shaderSource(sh, src);
-        gl.compileShader(sh);
-        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-          const info = gl.getShaderInfoLog(sh) || "";
-          gl.deleteShader(sh);
-          throw new Error(info);
+        function compileShader(type, src) {
+          const sh = gl.createShader(type);
+          gl.shaderSource(sh, src);
+          gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            const info = gl.getShaderInfoLog(sh) || "";
+            gl.deleteShader(sh);
+            throw new Error(info);
+          }
+          return sh;
         }
-        return sh;
-      }
 
-      function createProgram(vsSrc, fsSrc) {
-        const vs = compileShader(gl.VERTEX_SHADER, vsSrc);
-        const fs = compileShader(gl.FRAGMENT_SHADER, fsSrc);
-        const prog = gl.createProgram();
-        gl.attachShader(prog, vs);
-        gl.attachShader(prog, fs);
-        gl.linkProgram(prog);
-        gl.deleteShader(vs);
-        gl.deleteShader(fs);
-        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-          const info = gl.getProgramInfoLog(prog) || "";
-          gl.deleteProgram(prog);
-          throw new Error(info);
+        function createProgram(vsSrc, fsSrc) {
+          const vs = compileShader(gl.VERTEX_SHADER, vsSrc);
+          const fs = compileShader(gl.FRAGMENT_SHADER, fsSrc);
+          const prog = gl.createProgram();
+          gl.attachShader(prog, vs);
+          gl.attachShader(prog, fs);
+          gl.linkProgram(prog);
+          gl.deleteShader(vs);
+          gl.deleteShader(fs);
+          if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+            const info = gl.getProgramInfoLog(prog) || "";
+            gl.deleteProgram(prog);
+            throw new Error(info);
+          }
+          return prog;
         }
-        return prog;
-      }
 
-      const vs300 = `#version 300 es
+        const vsSrc = `#version 300 es
 precision highp float;
-
 const vec2 P[3] = vec2[3](
   vec2(-1.0, -1.0),
   vec2( 3.0, -1.0),
   vec2(-1.0,  3.0)
 );
-
 out vec2 v_uv;
-
 void main() {
   vec2 pos = P[gl_VertexID];
   gl_Position = vec4(pos, 0.0, 1.0);
   v_uv = pos * 0.5 + 0.5;
 }`;
 
-      const fsNoise300 = `#version 300 es
+        const fsNoiseSrc = `#version 300 es
 precision highp float;
 precision highp int;
-
 in vec2 v_uv;
 
-uniform vec2 u_resolution;
+uniform vec2  u_resolution;
 uniform float u_time;
 uniform float u_scale;
 uniform float u_speedZ;
+uniform vec2  u_offset;
 
 out vec4 outColor;
 
 float fade(float t){
-  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+  return t*t*t*(t*(t*6.0-15.0)+10.0);
 }
-
-float lerp1(float a, float b, float t){
-  return a + t * (b - a);
+float lerp1(float a,float b,float t){
+  return a+t*(b-a);
 }
-
 float fadePrime(float t){
-  return 30.0 * t * t * (t - 1.0) * (t - 1.0);
+  return 30.0*t*t*(t-1.0)*(t-1.0);
 }
-
 uint hash3(ivec3 p){
-  uvec3 q = uvec3(p);
-  uint h = q.x * 374761393u + q.y * 668265263u + q.z * 2246822519u;
-  h = (h ^ (h >> 13u)) * 1274126177u;
-  h = (h ^ (h >> 16u));
+  uvec3 q=uvec3(p);
+  uint h=q.x*374761393u+q.y*668265263u+q.z*2246822519u;
+  h=(h^(h>>13u))*1274126177u;
+  h=(h^(h>>16u));
   return h;
 }
-
 vec3 grad3(uint h){
-  int idx = int(h % 12u);
-  if (idx == 0)  return vec3( 1.0,  1.0,  0.0);
-  if (idx == 1)  return vec3(-1.0,  1.0,  0.0);
-  if (idx == 2)  return vec3( 1.0, -1.0,  0.0);
-  if (idx == 3)  return vec3(-1.0, -1.0,  0.0);
-  if (idx == 4)  return vec3( 1.0,  0.0,  1.0);
-  if (idx == 5)  return vec3(-1.0,  0.0,  1.0);
-  if (idx == 6)  return vec3( 1.0,  0.0, -1.0);
-  if (idx == 7)  return vec3(-1.0,  0.0, -1.0);
-  if (idx == 8)  return vec3( 0.0,  1.0,  1.0);
-  if (idx == 9)  return vec3( 0.0, -1.0,  1.0);
-  if (idx == 10) return vec3( 0.0,  1.0, -1.0);
-  return vec3( 0.0, -1.0, -1.0);
+  int idx=int(h%12u);
+  if(idx==0)  return vec3( 1, 1, 0);
+  if(idx==1)  return vec3(-1, 1, 0);
+  if(idx==2)  return vec3( 1,-1, 0);
+  if(idx==3)  return vec3(-1,-1, 0);
+  if(idx==4)  return vec3( 1, 0, 1);
+  if(idx==5)  return vec3(-1, 0, 1);
+  if(idx==6)  return vec3( 1, 0,-1);
+  if(idx==7)  return vec3(-1, 0,-1);
+  if(idx==8)  return vec3( 0, 1, 1);
+  if(idx==9)  return vec3( 0,-1, 1);
+  if(idx==10) return vec3( 0, 1,-1);
+  return vec3(0,-1,-1);
 }
-
 float perlin3(vec3 p){
-  ivec3 pi = ivec3(floor(p));
-  vec3 pf = fract(p);
+  ivec3 pi=ivec3(floor(p));
+  vec3 pf=fract(p);
+  float u=fade(pf.x),v=fade(pf.y),w=fade(pf.z);
 
-  float u = fade(pf.x);
-  float v = fade(pf.y);
-  float w = fade(pf.z);
+  float n000=dot(grad3(hash3(pi+ivec3(0,0,0))),pf-vec3(0,0,0));
+  float n100=dot(grad3(hash3(pi+ivec3(1,0,0))),pf-vec3(1,0,0));
+  float n010=dot(grad3(hash3(pi+ivec3(0,1,0))),pf-vec3(0,1,0));
+  float n110=dot(grad3(hash3(pi+ivec3(1,1,0))),pf-vec3(1,1,0));
+  float n001=dot(grad3(hash3(pi+ivec3(0,0,1))),pf-vec3(0,0,1));
+  float n101=dot(grad3(hash3(pi+ivec3(1,0,1))),pf-vec3(1,0,1));
+  float n011=dot(grad3(hash3(pi+ivec3(0,1,1))),pf-vec3(0,1,1));
+  float n111=dot(grad3(hash3(pi+ivec3(1,1,1))),pf-vec3(1,1,1));
 
-  vec3 g000 = grad3(hash3(pi + ivec3(0,0,0)));
-  vec3 g100 = grad3(hash3(pi + ivec3(1,0,0)));
-  vec3 g010 = grad3(hash3(pi + ivec3(0,1,0)));
-  vec3 g110 = grad3(hash3(pi + ivec3(1,1,0)));
-  vec3 g001 = grad3(hash3(pi + ivec3(0,0,1)));
-  vec3 g101 = grad3(hash3(pi + ivec3(1,0,1)));
-  vec3 g011 = grad3(hash3(pi + ivec3(0,1,1)));
-  vec3 g111 = grad3(hash3(pi + ivec3(1,1,1)));
-
-  float n000 = dot(g000, pf - vec3(0.0,0.0,0.0));
-  float n100 = dot(g100, pf - vec3(1.0,0.0,0.0));
-  float n010 = dot(g010, pf - vec3(0.0,1.0,0.0));
-  float n110 = dot(g110, pf - vec3(1.0,1.0,0.0));
-  float n001 = dot(g001, pf - vec3(0.0,0.0,1.0));
-  float n101 = dot(g101, pf - vec3(1.0,0.0,1.0));
-  float n011 = dot(g011, pf - vec3(0.0,1.0,1.0));
-  float n111 = dot(g111, pf - vec3(1.0,1.0,1.0));
-
-  float nx00 = lerp1(n000, n100, u);
-  float nx10 = lerp1(n010, n110, u);
-  float nx01 = lerp1(n001, n101, u);
-  float nx11 = lerp1(n011, n111, u);
-
-  float nxy0 = lerp1(nx00, nx10, v);
-  float nxy1 = lerp1(nx01, nx11, v);
-
-  float nxyz = lerp1(nxy0, nxy1, w);
-
-  float scaled = nxyz * 1.2;
-  return clamp(scaled, -1.0, 1.0);
+  float nx00=lerp1(n000,n100,u);
+  float nx10=lerp1(n010,n110,u);
+  float nx01=lerp1(n001,n101,u);
+  float nx11=lerp1(n011,n111,u);
+  float nxy0=lerp1(nx00,nx10,v);
+  float nxy1=lerp1(nx01,nx11,v);
+  return clamp(lerp1(nxy0,nxy1,w)*1.2,-1.0,1.0);
 }
 
 float perlinAlphaAtUV(vec2 uv){
-  float width = u_resolution.x;
-  float height = u_resolution.y;
+  float width=u_resolution.x, height=u_resolution.y;
+  float minDim=min(width,height);
+  vec2 fragXY=uv*vec2(width,height);
+  vec2 xy=(fragXY-0.5*vec2(width,height))/minDim+u_offset;
 
-  float minDim = min(width, height);
-  vec2 fragXY = uv * vec2(width, height);
-  vec2 xy = (fragXY - 0.5 * vec2(width, height)) / minDim + vec2(42.0);
+  float phase=perlin3(vec3(xy*(u_scale*0.15)+vec2(5.2,-3.7),0.0));
+  float z=u_time*u_speedZ+phase*3.5;
+  vec3 p=vec3(xy*u_scale+vec2(17.3,-9.1),z);
 
-  float phase = perlin3(vec3(xy * (u_scale * 0.15) + vec2(5.2, -3.7), 0.0));
-  float z = u_time * u_speedZ + phase * 3.5;
-  vec3 p = vec3(xy * u_scale + vec2(17.3, -9.1), z);
-
-  float eps = 0.02;
-  float nPlus  = perlin3(p + vec3(0.0, 0.0, eps));
-  float nMinus = perlin3(p - vec3(0.0, 0.0, eps));
-  float dndz = (nPlus - nMinus) / (2.0 * eps);
-
-  float env = max(fadePrime(fract(p.z)), 1e-3);
-  return clamp(abs(dndz) / env * 0.1, 0.0, 1.0);
+  float eps=0.02;
+  float nP=perlin3(p+vec3(0,0,eps));
+  float nM=perlin3(p-vec3(0,0,eps));
+  float dndz=(nP-nM)/(2.0*eps);
+  float env=max(fadePrime(fract(p.z)),1e-3);
+  return clamp(abs(dndz)/env*0.1,0.0,1.0);
 }
 
 void main(){
-  vec2 uvScreen = vec2(v_uv.x, 1.0 - v_uv.y);
-  float a = perlinAlphaAtUV(uvScreen);
-  outColor = vec4(vec3(a), 1.0);
+  vec2 uvS=vec2(v_uv.x,1.0-v_uv.y);
+  float a=perlinAlphaAtUV(uvS);
+  outColor=vec4(vec3(a),1.0);
 }`;
 
-      const fsComposite300 = `#version 300 es
+        const fsCompositeSrc = `#version 300 es
 precision highp float;
 precision highp int;
-
 in vec2 v_uv;
 
 uniform sampler2D u_noiseTex;
+uniform vec3  u_color;
+uniform float u_opacity;
 uniform float u_caContrast;
 uniform float u_caSamples;
 uniform float u_caSpread;
-uniform vec2 u_caCenter;
+uniform vec2  u_caCenter;
 
 out vec4 outColor;
 
-vec4 chromaticFromTexture(vec2 uvScreen){
-  int sampleCount = max(2, int(floor(u_caSamples + 0.5)));
-  float denom = max(float(sampleCount - 1), 1.0);
+vec4 chromaticFromTexture(vec2 uvS){
+  int sampleCount=max(2,int(floor(u_caSamples+0.5)));
+  float denom=max(float(sampleCount-1),1.0);
 
-  vec3 colorSum = vec3(0.0);
-  vec3 weightSum = vec3(0.0);
-  float alphaSum = 0.0;
-  float alphaWeightSum = 0.0;
+  vec3 colorSum=vec3(0),weightSum=vec3(0);
+  float alphaSum=0.0,alphaWeightSum=0.0;
 
-  for (int si = 0; si < sampleCount; ++si) {
-    float i = float(si) / denom;
-    float offset = (i - 0.5) * u_caSpread;
-    vec2 coord = clamp(uvScreen + (u_caCenter - uvScreen) * offset, 0.0, 1.0);
-    vec2 texCoord = vec2(coord.x, 1.0 - coord.y);
+  for(int si=0;si<sampleCount;++si){
+    float i=float(si)/denom;
+    float offset=(i-0.5)*u_caSpread;
+    vec2 coord=clamp(uvS+(u_caCenter-uvS)*offset,0.0,1.0);
+    vec2 tc=vec2(coord.x,1.0-coord.y);
+    float a=texture(u_noiseTex,tc).r;
 
-    float a = texture(u_noiseTex, texCoord).r;
+    vec4 w=vec4(i,1.0-abs(i+i-1.0),1.0-i,0.5);
+    w=vec4(0.5)+(w-vec4(0.5))*u_caContrast;
 
-    vec4 weight = vec4(i, 1.0 - abs(i + i - 1.0), 1.0 - i, 0.5);
-    weight = vec4(0.5) + (weight - vec4(0.5)) * u_caContrast;
-
-    colorSum += vec3(a * a) * weight.rgb;
-    weightSum += weight.rgb;
-    alphaSum += a * a * weight.a;
-    alphaWeightSum += weight.a;
+    colorSum+=vec3(a*a)*w.rgb;
+    weightSum+=w.rgb;
+    alphaSum+=a*a*w.a;
+    alphaWeightSum+=w.a;
   }
 
-  vec3 colorAvg = clamp(colorSum / max(weightSum, vec3(1e-4)), 0.0, 1.0);
-  float alphaAvg = clamp(alphaSum / max(alphaWeightSum, 1e-4), 0.0, 1.0);
-
-  vec3 color = sqrt(colorAvg);
-  float alpha = sqrt(alphaAvg);
-  vec3 premul = min(color, vec3(alpha));
-
-  return vec4(premul, alpha);
+  vec3 cAvg=clamp(colorSum/max(weightSum,vec3(1e-4)),0.0,1.0);
+  float aAvg=clamp(alphaSum/max(alphaWeightSum,1e-4),0.0,1.0);
+  vec3 col=sqrt(cAvg);
+  float alpha=sqrt(aAvg);
+  return vec4(min(col,vec3(alpha)),alpha);
 }
 
 void main(){
-  vec2 uvScreen = vec2(v_uv.x, 1.0 - v_uv.y);
-  outColor = chromaticFromTexture(uvScreen);
+  vec2 uvS=vec2(v_uv.x,1.0-v_uv.y);
+  vec4 chroma=chromaticFromTexture(uvS);
+
+  float finalAlpha=chroma.a*u_opacity;
+  vec3  finalRgb=chroma.rgb*u_color*u_opacity;
+  outColor=vec4(finalRgb,finalAlpha);
 }`;
 
-      const noiseProgram = createProgram(vs300, fsNoise300);
-      const compositeProgram = createProgram(vs300, fsComposite300);
+        const noiseProgram     = createProgram(vsSrc, fsNoiseSrc);
+        const compositeProgram = createProgram(vsSrc, fsCompositeSrc);
 
-      const vao = gl.createVertexArray();
-      gl.bindVertexArray(vao);
-      gl.bindVertexArray(null);
+        const vao = gl.createVertexArray();
 
-      const noise_uRes = gl.getUniformLocation(noiseProgram, "u_resolution");
-      const noise_uTime = gl.getUniformLocation(noiseProgram, "u_time");
-      const noise_uScale = gl.getUniformLocation(noiseProgram, "u_scale");
-      const noise_uSpeed = gl.getUniformLocation(noiseProgram, "u_speedZ");
+        const nRes    = gl.getUniformLocation(noiseProgram, "u_resolution");
+        const nTime   = gl.getUniformLocation(noiseProgram, "u_time");
+        const nScale  = gl.getUniformLocation(noiseProgram, "u_scale");
+        const nSpeed  = gl.getUniformLocation(noiseProgram, "u_speedZ");
+        const nOffset = gl.getUniformLocation(noiseProgram, "u_offset");
 
-      const comp_uNoiseTex = gl.getUniformLocation(compositeProgram, "u_noiseTex");
-      const comp_uCAContrast = gl.getUniformLocation(compositeProgram, "u_caContrast");
-      const comp_uCASamples = gl.getUniformLocation(compositeProgram, "u_caSamples");
-      const comp_uCASpread = gl.getUniformLocation(compositeProgram, "u_caSpread");
-      const comp_uCACenter = gl.getUniformLocation(compositeProgram, "u_caCenter");
+        const cTex        = gl.getUniformLocation(compositeProgram, "u_noiseTex");
+        const cColor      = gl.getUniformLocation(compositeProgram, "u_color");
+        const cOpacity    = gl.getUniformLocation(compositeProgram, "u_opacity");
+        const cCAContrast = gl.getUniformLocation(compositeProgram, "u_caContrast");
+        const cCASamples  = gl.getUniformLocation(compositeProgram, "u_caSamples");
+        const cCASpread   = gl.getUniformLocation(compositeProgram, "u_caSpread");
+        const cCACenter   = gl.getUniformLocation(compositeProgram, "u_caCenter");
 
-      let offscreenTex = null;
-      let offscreenFbo = null;
-      let offscreenW = 0;
-      let offscreenH = 0;
+        let offTex = null, offFbo = null, offW = 0, offH = 0;
 
-      function createOffscreen(w, h) {
-        if (offscreenTex) gl.deleteTexture(offscreenTex);
-        if (offscreenFbo) gl.deleteFramebuffer(offscreenFbo);
+        function createOffscreen(w, h) {
+          if (offTex) gl.deleteTexture(offTex);
+          if (offFbo) gl.deleteFramebuffer(offFbo);
 
-        offscreenTex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, offscreenTex);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          offTex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, offTex);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
-        offscreenFbo = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, offscreenFbo);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, offscreenTex, 0);
-
-        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-        if (status !== gl.FRAMEBUFFER_COMPLETE) {
-          throw new Error(`Framebuffer incomplete: ${status}`);
+          offFbo = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, offFbo);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, offTex, 0);
+          if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+            throw new Error("Framebuffer incomplete");
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          offW = w; offH = h;
         }
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-
-        offscreenW = w;
-        offscreenH = h;
-      }
-
-      function configure() {
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
-        const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-        const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
-        const resized = canvas.width !== w || canvas.height !== h;
-
-        if (resized) {
-          canvas.width = w;
-          canvas.height = h;
+        function configure() {
+          const dpr = Math.max(1, window.devicePixelRatio || 1);
+          const w = Math.max(1, Math.floor(canvas.clientWidth  * dpr));
+          const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+          if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w; canvas.height = h;
+          }
+          if (!offTex || offW !== w || offH !== h) createOffscreen(w, h);
         }
 
-        if (!offscreenTex || offscreenW !== w || offscreenH !== h) {
-          createOffscreen(w, h);
-        }
-      }
-
-      activeConfigure = configure;
-      configure();
-
-      const scale = 8.0;
-      const speedZ = 0.25;
-
-      gl.clearColor(0, 0, 0, 0);
-      gl.disable(gl.DEPTH_TEST);
-      gl.disable(gl.CULL_FACE);
-      gl.disable(gl.BLEND);
-
-      function frame(tMs) {
+        activeConfigure = configure;
         configure();
 
-        const t = tMs * 0.001;
-        const ca = getCAParams();
+        gl.clearColor(0, 0, 0, 0);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.CULL_FACE);
+        gl.disable(gl.BLEND);
 
-        gl.bindVertexArray(vao);
+        function frame(tMs) {
+          if (destroyed) return;
+          configure();
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, offscreenFbo);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.useProgram(noiseProgram);
-        gl.uniform2f(noise_uRes, canvas.width, canvas.height);
-        gl.uniform1f(noise_uTime, t);
-        gl.uniform1f(noise_uScale, scale);
-        gl.uniform1f(noise_uSpeed, speedZ);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+          const t  = tMs * 0.001;
+          const sp = getScaleParams();
+          const ca = getCAParams();
+          const [cr, cg, cb] = getColorRgb();
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.useProgram(compositeProgram);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, offscreenTex);
-        gl.uniform1i(comp_uNoiseTex, 0);
-        gl.uniform1f(comp_uCAContrast, ca.contrast);
-        gl.uniform1f(comp_uCASamples, ca.samples);
-        gl.uniform1f(comp_uCASpread, ca.spread);
-        gl.uniform2f(comp_uCACenter, ca.centerX, ca.centerY);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+          gl.bindVertexArray(vao);
 
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.bindVertexArray(null);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, offFbo);
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          gl.useProgram(noiseProgram);
+          gl.uniform2f(nRes, canvas.width, canvas.height);
+          gl.uniform1f(nTime, t);
+          gl.uniform1f(nScale, sp.finalScale);
+          gl.uniform1f(nSpeed, SPEED_Z);
+          gl.uniform2f(nOffset, sp.adjustedX, sp.adjustedY);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          gl.useProgram(compositeProgram);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, offTex);
+          gl.uniform1i(cTex, 0);
+          gl.uniform3f(cColor, cr, cg, cb);
+          gl.uniform1f(cOpacity, state.opacity);
+          gl.uniform1f(cCAContrast, ca.contrast);
+          gl.uniform1f(cCASamples, ca.samples);
+          gl.uniform1f(cCASpread, ca.spread);
+          gl.uniform2f(cCACenter, ca.centerX, ca.centerY);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          gl.bindVertexArray(null);
+
+          rafId = requestAnimationFrame(frame);
+        }
 
         rafId = requestAnimationFrame(frame);
       }
 
-      rafId = requestAnimationFrame(frame);
+      /* --- Mode switching --- */
+      async function startMode(mode, allowFallback = true) {
+        if (destroyed) return null;
+        stopActive();
+
+        /* A canvas element can only ever have ONE context type.
+           Swap in a fresh <canvas> so we always get a clean slate. */
+        if (canvasTainted) {
+          replaceCanvas();
+        }
+        canvasTainted = true;
+
+        if (mode === "webgpu") {
+          if (!navigator.gpu) {
+            if (allowFallback) return await startMode("webgl", false);
+            return null;
+          }
+          try {
+            await startWebGPU();
+            currentMode = "webgpu";
+            return "webgpu";
+          } catch (e) {
+            console.warn("WebGPU init failed:", e);
+            if (allowFallback) return await startMode("webgl", false);
+            return null;
+          }
+        } else if (mode === "webgl") {
+          try {
+            await startWebGL();
+            currentMode = "webgl";
+            return "webgl";
+          } catch (e) {
+            console.warn("WebGL init failed:", e);
+            if (allowFallback) return await startMode("webgpu", false);
+            return null;
+          }
+        }
+        return null;
+      }
+
+      /* --- Public API --- */
+      const api = {
+        get mode() { return currentMode; },
+        get params() { return state; },
+
+        setParams(patch) {
+          Object.assign(state, patch);
+        },
+
+        async switchMode(mode, allowFallback = true) {
+          return await startMode(mode, allowFallback);
+        },
+
+        async nextMode() {
+          const next = modes[(modes.indexOf(currentMode) + 1) % modes.length];
+          return await startMode(next, true);
+        },
+
+        destroy() {
+          destroyed = true;
+          stopActive();
+          window.removeEventListener("resize", resizeHandler);
+        },
+      };
+
+      /* --- Auto-start --- */
+      const initialMode = state.forceMode || (navigator.gpu ? "webgpu" : "webgl");
+      const boot = startMode(initialMode, !state.forceMode).then(() => api);
+
+      api._ready = boot;
+      return api;
     }
 
-    updateModeButtonLabel();
+
+    /* ============================================
+       Page-level UI wiring
+       ============================================ */
+    const statusEl      = document.getElementById("status");
+    const toggleModeBtn = document.getElementById("toggleMode");
+    const toggleBgBtn   = document.getElementById("toggleBg");
+    let bgMode = "black";
+
+    function modeLabel(m) {
+      if (m === "webgpu") return "WebGPU";
+      if (m === "webgl")  return "WebGL";
+      return m || "?";
+    }
+
+    function updateUI() {
+      const m = instance.mode;
+      const modes = ["webgpu", "webgl"];
+      const next = modes[(modes.indexOf(m) + 1) % modes.length];
+      toggleModeBtn.textContent = `Switch to ${modeLabel(next)}`;
+      statusEl.textContent = `Mode: ${modeLabel(m)} - Background: ${bgMode === "image" ? "Image" : "Black"}`;
+    }
+
+    function applyBackground() {
+      if (bgMode === "image") document.body.classList.add("bg-image");
+      else document.body.classList.remove("bg-image");
+      toggleBgBtn.textContent = bgMode === "image" ? "Background: Image" : "Background: Black";
+      updateUI();
+    }
+
+    const instance = createPerlinAnimation(document.getElementById("c"), {
+      color:      "#ffffff",
+      opacity:    1,
+      scale:      1,
+      x:          42,
+      y:          42,
+      caContrast: 1,
+      caSamples:  32,
+      caSpread:   0.025,
+      caCenterX:  0.5,
+      caCenterY:  0.5,
+      forceMode:  null,
+    });
+
+    instance._ready.then(() => updateUI());
+
+    toggleModeBtn.addEventListener("click", async () => {
+      toggleModeBtn.disabled = true;
+      await instance.nextMode();
+      updateUI();
+      toggleModeBtn.disabled = false;
+    });
+
+    toggleBgBtn.addEventListener("click", () => {
+      bgMode = bgMode === "black" ? "image" : "black";
+      applyBackground();
+    });
+
     applyBackground();
-    await start(navigator.gpu ? "webgpu" : "webgl");
   </script>
 </body>
 </html>
