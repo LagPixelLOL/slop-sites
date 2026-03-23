@@ -1,92 +1,376 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
   <title>Perlin WebGPU</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <style>
-    html, body { margin: 0; height: 100%; background: #000; }
-    body {
-      background-color: #000;
-      background-position: center;
-      background-size: cover;
-      background-repeat: no-repeat;
-      background-attachment: fixed;
-      transition: background-image 100ms ease, background-color 100ms ease;
-    }
-    body.bg-image {
-      background-color: #000;
-      background-image: url("https://images.unsplash.com/photo-1506905925346-21bda4d32df4");
-    }
-
-    canvas { width: 100dvw; height: 100dvh; display: block; background: transparent; }
-
-    #hud {
-      position: fixed; left: 16px; top: 16px;
-      font: 1rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      color: #ddd; background: rgba(0,0,0,0.55);
-      padding: 10px 10px; border-radius: 8px;
-      max-width: 720px;
-      backdrop-filter: blur(6px);
-    }
-
-    .hud-btn {
-      display: block;
-      margin-top: 8px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.25);
-      background: rgba(255,255,255,0.08);
-      color: #ddd;
-      cursor: pointer;
-      user-select: none;
-    }
-    .hud-btn:hover { background: rgba(255,255,255,0.12); }
-  </style>
 </head>
-<body>
-  <canvas id="c"></canvas>
-  <div id="hud">
-    <div>Perlin WebGPU</div>
-    <button id="toggleMode" class="hud-btn">Switch mode</button>
-    <button id="toggleBg" class="hud-btn">Background: Black</button>
-    <div id="status" style="margin-top:8px;color:#bbb;font-size:0.9rem;line-height:1.25;"></div>
+<body class="m-0 h-full bg-black bg-center bg-cover bg-no-repeat bg-fixed transition-all duration-100 ease-out">
+  <canvas id="c" class="block h-[100dvh] w-[100dvw] bg-transparent"></canvas>
+
+  <div
+    id="hud"
+    class="fixed left-4 top-4 z-10 max-w-[720px] rounded-lg border border-white/10 bg-black/55 p-3 font-mono text-sm text-zinc-200 backdrop-blur-md"
+  >
+    <div class="text-base">Perlin WebGPU</div>
+
+    <button
+      id="toggleMode"
+      type="button"
+      class="mt-2 block cursor-pointer rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-left text-zinc-200 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Switch mode
+    </button>
+
+    <button
+      id="toggleBg"
+      type="button"
+      class="mt-2 block cursor-pointer rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-left text-zinc-200 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Background: Black
+    </button>
+
+    <button
+      id="openExport"
+      type="button"
+      class="mt-2 block cursor-pointer rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-left text-zinc-200 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Open video export
+    </button>
+
+    <div id="status" class="mt-2 text-[0.9rem] leading-5 text-zinc-400"></div>
+  </div>
+
+  <div
+    id="exportOverlay"
+    class="fixed inset-0 z-40 hidden items-center justify-center bg-black/80 p-5 backdrop-blur-md"
+  >
+    <div
+      id="exportPanel"
+      class="max-h-[90dvh] w-full max-w-[1440px] overflow-auto rounded-2xl border border-white/15 bg-zinc-950/95 p-4 font-mono text-sm text-zinc-200 shadow-2xl"
+    >
+      <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="text-lg text-zinc-100">Video export</div>
+        </div>
+
+        <button
+          id="closeExport"
+          type="button"
+          class="cursor-pointer rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-zinc-200 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Close
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2.3fr)_minmax(360px,1fr)]">
+        <div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+            <div>
+              <label for="expFps" class="mb-1 block text-xs text-zinc-400">FPS</label>
+              <input
+                id="expFps"
+                type="number"
+                min="1"
+                step="1"
+                value="30"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expDuration" class="mb-1 block text-xs text-zinc-400">Time (seconds)</label>
+              <input
+                id="expDuration"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value="10"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expWidth" class="mb-1 block text-xs text-zinc-400">Width (px)</label>
+              <input
+                id="expWidth"
+                type="number"
+                min="1"
+                step="1"
+                value="1024"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expHeight" class="mb-1 block text-xs text-zinc-400">Height (px)</label>
+              <input
+                id="expHeight"
+                type="number"
+                min="1"
+                step="1"
+                value="1024"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expContainer" class="mb-1 block text-xs text-zinc-400">Container</label>
+              <select
+                id="expContainer"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              ></select>
+            </div>
+
+            <div>
+              <label for="expCodec" class="mb-1 block text-xs text-zinc-400">Codec</label>
+              <select
+                id="expCodec"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              ></select>
+            </div>
+
+            <div>
+              <label for="expForceMode" class="mb-1 block text-xs text-zinc-400">forceMode</label>
+              <select
+                id="expForceMode"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Auto</option>
+                <option value="webgpu">WebGPU</option>
+                <option value="webgl">WebGL</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="expColor" class="mb-1 block text-xs text-zinc-400">color</label>
+              <input
+                id="expColor"
+                type="color"
+                value="#ffffff"
+                class="block h-[42px] w-full rounded-lg border border-white/15 bg-white/6 px-2 py-1 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expOpacity" class="mb-1 block text-xs text-zinc-400">opacity</label>
+              <input
+                id="expOpacity"
+                type="number"
+                min="0"
+                step="0.01"
+                value="1"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expBackgroundColor" class="mb-1 block text-xs text-zinc-400">backgroundColor</label>
+              <input
+                id="expBackgroundColor"
+                type="color"
+                value="#000000"
+                class="block h-[42px] w-full rounded-lg border border-white/15 bg-white/6 px-2 py-1 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expBackgroundOpacity" class="mb-1 block text-xs text-zinc-400">backgroundOpacity</label>
+              <input
+                id="expBackgroundOpacity"
+                type="number"
+                min="0"
+                step="0.01"
+                value="1"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expScale" class="mb-1 block text-xs text-zinc-400">scale</label>
+              <input
+                id="expScale"
+                type="number"
+                min="0.001"
+                step="0.01"
+                value="1"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expX" class="mb-1 block text-xs text-zinc-400">x</label>
+              <input
+                id="expX"
+                type="number"
+                step="0.1"
+                value="42"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expY" class="mb-1 block text-xs text-zinc-400">y</label>
+              <input
+                id="expY"
+                type="number"
+                step="0.1"
+                value="42"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expCAContrast" class="mb-1 block text-xs text-zinc-400">caContrast</label>
+              <input
+                id="expCAContrast"
+                type="number"
+                step="0.01"
+                value="1"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expCASamples" class="mb-1 block text-xs text-zinc-400">caSamples</label>
+              <input
+                id="expCASamples"
+                type="number"
+                min="2"
+                step="1"
+                value="32"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expCASpread" class="mb-1 block text-xs text-zinc-400">caSpread</label>
+              <input
+                id="expCASpread"
+                type="number"
+                step="0.001"
+                value="0.025"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expCACenterX" class="mb-1 block text-xs text-zinc-400">caCenterX</label>
+              <input
+                id="expCACenterX"
+                type="number"
+                step="0.01"
+                value="0.5"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label for="expCACenterY" class="mb-1 block text-xs text-zinc-400">caCenterY</label>
+              <input
+                id="expCACenterY"
+                type="number"
+                step="0.01"
+                value="0.5"
+                class="block w-full rounded-lg border border-white/15 bg-white/6 px-3 py-2 text-zinc-100 outline-none transition focus:border-white/30 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          <div id="exportEncodingInfo" class="mt-3 text-xs leading-5 text-zinc-400"></div>
+          <div id="exportStatus" class="mt-2 min-h-[1.25rem] text-sm leading-5 text-zinc-300"></div>
+
+          <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+            <div id="exportProgressBar" class="h-full w-0 bg-white/70 transition-[width] duration-100 ease-out"></div>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              id="startExport"
+              type="button"
+              class="cursor-pointer rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-zinc-200 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Generate video
+            </button>
+
+            <button
+              id="cancelExport"
+              type="button"
+              class="cursor-pointer rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-zinc-200 transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <a
+              id="downloadExport"
+              href="#"
+              download
+              class="hidden rounded-lg border border-white/25 bg-white/8 px-3 py-2 text-zinc-200 transition hover:bg-white/12"
+            >
+              Download
+            </a>
+          </div>
+
+          <div id="exportResultInfo" class="mt-3 text-xs leading-5 text-zinc-400"></div>
+        </div>
+
+        <div>
+          <div class="flex min-h-[320px] items-center justify-center rounded-xl border border-white/15 bg-black p-3">
+            <canvas
+              id="exportCanvasPreview"
+              class="block max-h-[70dvh] w-full rounded-lg bg-black object-contain"
+            ></canvas>
+
+            <video
+              id="exportVideoPreview"
+              class="hidden max-h-[70dvh] w-full rounded-lg bg-black object-contain"
+              controls
+              loop
+              playsinline
+            ></video>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module">
-    /* ============================================
-       createPerlinAnimation - self-contained factory
-       ============================================ */
     function createPerlinAnimation(initialCanvas, options = {}) {
-
-      /* --- Mutable canvas reference (may be swapped on mode switch) --- */
       let canvas = initialCanvas;
 
-      /* --- Instance state (defaults merged with caller options) --- */
       const state = {
-        color:      options.color      ?? "#ffffff",
-        opacity:    options.opacity    ?? 1,
-        scale:      options.scale      ?? 1,
-        x:          options.x          ?? 42,
-        y:          options.y          ?? 42,
+        color: options.color ?? "#ffffff",
+        opacity: options.opacity ?? 1,
+        backgroundColor: options.backgroundColor ?? "#000000",
+        backgroundOpacity: options.backgroundOpacity ?? 0,
+        scale: options.scale ?? 1,
+        x: options.x ?? 42,
+        y: options.y ?? 42,
         caContrast: options.caContrast ?? 1,
-        caSamples:  options.caSamples  ?? 32,
-        caSpread:   options.caSpread   ?? 0.025,
-        caCenterX:  options.caCenterX  ?? 0.5,
-        caCenterY:  options.caCenterY  ?? 0.5,
-        forceMode:  options.forceMode  ?? null,
+        caSamples: options.caSamples ?? 32,
+        caSpread: options.caSpread ?? 0.025,
+        caCenterX: options.caCenterX ?? 0.5,
+        caCenterY: options.caCenterY ?? 0.5,
+        forceMode: options.forceMode ?? null,
       };
 
-      /* --- Constants --- */
-      const BASE_SCALE = 8.0;
-      const SPEED_Z    = 0.25;
+      const renderOptions = {
+        autoStart: options.autoStart ?? true,
+        fixedPixelWidth: options.fixedPixelWidth ?? null,
+        fixedPixelHeight: options.fixedPixelHeight ?? null,
+        preferStableCapture: options.preferStableCapture ?? false,
+      };
 
-      /* --- Helpers --- */
+      const BASE_SCALE = 8.0;
+      const SPEED_Z = 0.25;
+
       const parseHexColor = (hex) => {
-        let h = hex.replace("#", "");
-        if (h.length === 3) h = h.split("").map(c => c + c).join("");
+        let h = String(hex || "#ffffff").replace("#", "");
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
         const num = parseInt(h, 16);
+        if (!Number.isFinite(num)) return [1, 1, 1];
         return [
           ((num >> 16) & 255) / 255,
           ((num >> 8) & 255) / 255,
@@ -104,10 +388,10 @@
       function getCAParams() {
         return {
           contrast: state.caContrast,
-          samples:  normalizeCASamples(state.caSamples),
-          spread:   state.caSpread,
-          centerX:  state.caCenterX,
-          centerY:  state.caCenterY,
+          samples: normalizeCASamples(state.caSamples),
+          spread: state.caSpread,
+          centerX: state.caCenterX,
+          centerY: state.caCenterY,
         };
       }
 
@@ -115,8 +399,8 @@
         const userScale = Math.max(state.scale, 0.001);
         return {
           finalScale: BASE_SCALE / userScale,
-          adjustedX:  state.x * userScale,
-          adjustedY:  state.y * userScale,
+          adjustedX: state.x * userScale,
+          adjustedY: state.y * userScale,
         };
       }
 
@@ -124,50 +408,98 @@
         return parseHexColor(state.color);
       }
 
-      /* --- Internal bookkeeping --- */
-      let currentMode     = null;
-      let rafId           = 0;
+      function getBackgroundRgb() {
+        return parseHexColor(state.backgroundColor);
+      }
+
+      function getTargetPixelSize() {
+        if (renderOptions.fixedPixelWidth != null && renderOptions.fixedPixelHeight != null) {
+          return {
+            width: Math.max(1, Math.floor(renderOptions.fixedPixelWidth)),
+            height: Math.max(1, Math.floor(renderOptions.fixedPixelHeight)),
+          };
+        }
+
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        return {
+          width: Math.max(1, Math.floor(canvas.clientWidth * dpr)),
+          height: Math.max(1, Math.floor(canvas.clientHeight * dpr)),
+        };
+      }
+
+      let currentMode = null;
+      let rafId = 0;
       let activeConfigure = null;
-      let destroyed       = false;
-      let canvasTainted   = false;   // has a context been requested on this canvas?
+      let destroyed = false;
+      let canvasTainted = false;
+      let currentBackend = null;
 
       const modes = ["webgpu", "webgl"];
 
-      const resizeHandler = () => activeConfigure && activeConfigure();
+      const resizeHandler = () => {
+        if (destroyed) return;
+        if (renderOptions.fixedPixelWidth == null || renderOptions.fixedPixelHeight == null) {
+          if (activeConfigure) activeConfigure();
+        }
+      };
       window.addEventListener("resize", resizeHandler, { passive: true });
 
-      function stopActive() {
+      function stopLoop() {
         if (rafId) cancelAnimationFrame(rafId);
         rafId = 0;
-        activeConfigure = null;
       }
 
-      /* --- Replace the canvas element so we get a fresh context --- */
+      function startLoop() {
+        if (destroyed || !currentBackend || !renderOptions.autoStart || rafId) return;
+
+        const tick = (tMs) => {
+          if (destroyed || !currentBackend || !renderOptions.autoStart) {
+            rafId = 0;
+            return;
+          }
+          currentBackend.renderAt(tMs * 0.001, false);
+          rafId = requestAnimationFrame(tick);
+        };
+
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function stopActive() {
+        stopLoop();
+        activeConfigure = null;
+        if (currentBackend && typeof currentBackend.destroy === "function") {
+          try { currentBackend.destroy(); } catch (e) {}
+        }
+        currentBackend = null;
+        currentMode = null;
+      }
+
       function replaceCanvas() {
-        const parent = canvas.parentNode;
-        if (!parent) return;
         const fresh = document.createElement("canvas");
         fresh.id = canvas.id;
-        parent.replaceChild(fresh, canvas);
+        fresh.className = canvas.className;
+        fresh.style.cssText = canvas.style.cssText;
+        fresh.width = canvas.width;
+        fresh.height = canvas.height;
+        if (canvas.parentNode) {
+          canvas.parentNode.replaceChild(fresh, canvas);
+        }
         canvas = fresh;
         canvasTainted = false;
       }
 
-      /* ============================================
-         WebGPU Backend
-         ============================================ */
-      async function startWebGPU() {
+      async function initWebGPU() {
         const adapter = await navigator.gpu.requestAdapter();
         if (!adapter) throw new Error("No GPU adapter found");
-        const device = await adapter.requestDevice();
 
+        const device = await adapter.requestDevice();
         const context = canvas.getContext("webgpu");
         if (!context) throw new Error("Failed to acquire WebGPU canvas context");
 
         const format = navigator.gpu.getPreferredCanvasFormat();
 
         const uniformBuffer = device.createBuffer({
-          size: 64,
+          size: 80,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -177,6 +509,7 @@ struct Uniforms {
   params1 : vec4<f32>,
   params2 : vec4<f32>,
   params3 : vec4<f32>,
+  params4 : vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> U : Uniforms;
@@ -356,17 +689,24 @@ fn fsNoise(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
 
 @fragment
 fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> {
-  let width     = U.params0.x;
-  let height    = U.params0.y;
-  let opacity   = U.params1.y;
-  let baseColor = U.params3.yzw;
+  let width      = U.params0.x;
+  let height     = U.params0.y;
+  let opacity    = U.params1.y;
+  let baseColor  = U.params3.yzw;
+  let bgColor    = U.params4.xyz;
+  let bgOpacity  = U.params4.w;
 
-  let uv    = fragPos.xy / vec2<f32>(width, height);
+  let uv = fragPos.xy / vec2<f32>(width, height);
   let chroma = chromaticFromTexture(uv);
 
-  let finalAlpha = chroma.a * opacity;
-  let finalRgb   = chroma.rgb * baseColor * opacity;
-  return vec4<f32>(finalRgb, finalAlpha);
+  let srcAlpha  = chroma.a * opacity;
+  let srcPremul = chroma.rgb * baseColor * opacity;
+
+  let bgPremul = bgColor * bgOpacity;
+  let outPremul = srcPremul + bgPremul * (1.0 - srcAlpha);
+  let outAlpha  = srcAlpha + bgOpacity * (1.0 - srcAlpha);
+
+  return vec4<f32>(outPremul, outAlpha);
 }
 `;
 
@@ -387,14 +727,14 @@ fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> 
 
         const noisePipeline = device.createRenderPipeline({
           layout: device.createPipelineLayout({ bindGroupLayouts: [uniformBGL] }),
-          vertex:   { module, entryPoint: "vsMain" },
+          vertex: { module, entryPoint: "vsMain" },
           fragment: { module, entryPoint: "fsNoise", targets: [{ format: "rgba8unorm" }] },
           primitive: { topology: "triangle-list" },
         });
 
         const compositePipeline = device.createRenderPipeline({
           layout: device.createPipelineLayout({ bindGroupLayouts: [uniformBGL, sampleBGL] }),
-          vertex:   { module, entryPoint: "vsMain" },
+          vertex: { module, entryPoint: "vsMain" },
           fragment: { module, entryPoint: "fsComposite", targets: [{ format }] },
           primitive: { topology: "triangle-list" },
         });
@@ -405,18 +745,26 @@ fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> 
         });
 
         const sampler = device.createSampler({
-          magFilter: "linear", minFilter: "linear", mipmapFilter: "linear",
-          addressModeU: "clamp-to-edge", addressModeV: "clamp-to-edge",
+          magFilter: "linear",
+          minFilter: "linear",
+          mipmapFilter: "linear",
+          addressModeU: "clamp-to-edge",
+          addressModeV: "clamp-to-edge",
         });
 
-        let offTex = null, offView = null, sampleBG = null;
-        let configured = false, offW = 0, offH = 0;
+        let offTex = null;
+        let offView = null;
+        let sampleBG = null;
+        let configured = false;
+        let offW = 0;
+        let offH = 0;
 
         function ensureOffscreen(w, h) {
           if (offTex && offW === w && offH === h) return;
           if (offTex) offTex.destroy();
           offTex = device.createTexture({
-            size: [w, h], format: "rgba8unorm",
+            size: [w, h],
+            format: "rgba8unorm",
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
           });
           offView = offTex.createView();
@@ -427,15 +775,19 @@ fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> 
               { binding: 1, resource: offView },
             ],
           });
-          offW = w; offH = h;
+          offW = w;
+          offH = h;
         }
 
         function configure() {
-          const dpr = Math.max(1, window.devicePixelRatio || 1);
-          const w = Math.max(1, Math.floor(canvas.clientWidth  * dpr));
-          const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+          const size = getTargetPixelSize();
+          const w = size.width;
+          const h = size.height;
           const resized = canvas.width !== w || canvas.height !== h;
-          if (resized) { canvas.width = w; canvas.height = h; }
+          if (resized) {
+            canvas.width = w;
+            canvas.height = h;
+          }
           if (resized || !configured) {
             context.configure({ device, format, alphaMode: "premultiplied" });
             ensureOffscreen(w, h);
@@ -443,32 +795,32 @@ fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> 
           }
         }
 
-        activeConfigure = configure;
-        configure();
-
-        function frame(tMs) {
-          if (destroyed) return;
+        function renderAt(t, awaitSubmit = false) {
+          if (destroyed) return Promise.resolve();
           configure();
 
-          const t  = tMs * 0.001;
-          const w  = canvas.width;
-          const h  = canvas.height;
+          const w = canvas.width;
+          const h = canvas.height;
           const sp = getScaleParams();
           const ca = getCAParams();
-          const [cr, cg, cb] = getColorRgb();
+          const color = getColorRgb();
+          const bgColor = getBackgroundRgb();
 
           device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([
             w, h, t, sp.finalScale,
             SPEED_Z, state.opacity, sp.adjustedX, sp.adjustedY,
             ca.contrast, ca.samples, ca.spread, ca.centerX,
-            ca.centerY, cr, cg, cb,
+            ca.centerY, color[0], color[1], color[2],
+            bgColor[0], bgColor[1], bgColor[2], state.backgroundOpacity,
           ]));
 
           const encoder = device.createCommandEncoder();
 
           const noisePass = encoder.beginRenderPass({
             colorAttachments: [{
-              view: offView, loadOp: "clear", storeOp: "store",
+              view: offView,
+              loadOp: "clear",
+              storeOp: "store",
               clearValue: { r: 0, g: 0, b: 0, a: 1 },
             }],
           });
@@ -480,7 +832,8 @@ fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> 
           const compPass = encoder.beginRenderPass({
             colorAttachments: [{
               view: context.getCurrentTexture().createView(),
-              loadOp: "clear", storeOp: "store",
+              loadOp: "clear",
+              storeOp: "store",
               clearValue: { r: 0, g: 0, b: 0, a: 0 },
             }],
           });
@@ -491,18 +844,30 @@ fn fsComposite(@builtin(position) fragPos: vec4<f32>) -> @location(0) vec4<f32> 
           compPass.end();
 
           device.queue.submit([encoder.finish()]);
-          rafId = requestAnimationFrame(frame);
+
+          if (awaitSubmit && typeof device.queue.onSubmittedWorkDone === "function") {
+            return device.queue.onSubmittedWorkDone();
+          }
+          return Promise.resolve();
         }
 
-        rafId = requestAnimationFrame(frame);
+        return {
+          configure,
+          renderAt,
+          destroy() {
+            if (offTex) {
+              try { offTex.destroy(); } catch (e) {}
+            }
+          },
+        };
       }
 
-      /* ============================================
-         WebGL Backend
-         ============================================ */
-      async function startWebGL() {
+      async function initWebGL() {
         const gl = canvas.getContext("webgl2", {
-          antialias: false, alpha: true, premultipliedAlpha: true,
+          antialias: false,
+          alpha: true,
+          premultipliedAlpha: true,
+          preserveDrawingBuffer: !!renderOptions.preferStableCapture,
         });
         if (!gl) throw new Error("WebGL2 not available");
 
@@ -648,6 +1013,8 @@ in vec2 v_uv;
 uniform sampler2D u_noiseTex;
 uniform vec3  u_color;
 uniform float u_opacity;
+uniform vec3  u_bgColor;
+uniform float u_bgOpacity;
 uniform float u_caContrast;
 uniform float u_caSamples;
 uniform float u_caSpread;
@@ -689,31 +1056,41 @@ void main(){
   vec2 uvS=vec2(v_uv.x,1.0-v_uv.y);
   vec4 chroma=chromaticFromTexture(uvS);
 
-  float finalAlpha=chroma.a*u_opacity;
-  vec3  finalRgb=chroma.rgb*u_color*u_opacity;
-  outColor=vec4(finalRgb,finalAlpha);
+  float srcAlpha = chroma.a * u_opacity;
+  vec3 srcPremul = chroma.rgb * u_color * u_opacity;
+
+  vec3 bgPremul = u_bgColor * u_bgOpacity;
+  vec3 outPremul = srcPremul + bgPremul * (1.0 - srcAlpha);
+  float outAlpha = srcAlpha + u_bgOpacity * (1.0 - srcAlpha);
+
+  outColor=vec4(outPremul,outAlpha);
 }`;
 
-        const noiseProgram     = createProgram(vsSrc, fsNoiseSrc);
+        const noiseProgram = createProgram(vsSrc, fsNoiseSrc);
         const compositeProgram = createProgram(vsSrc, fsCompositeSrc);
 
         const vao = gl.createVertexArray();
 
-        const nRes    = gl.getUniformLocation(noiseProgram, "u_resolution");
-        const nTime   = gl.getUniformLocation(noiseProgram, "u_time");
-        const nScale  = gl.getUniformLocation(noiseProgram, "u_scale");
-        const nSpeed  = gl.getUniformLocation(noiseProgram, "u_speedZ");
+        const nRes = gl.getUniformLocation(noiseProgram, "u_resolution");
+        const nTime = gl.getUniformLocation(noiseProgram, "u_time");
+        const nScale = gl.getUniformLocation(noiseProgram, "u_scale");
+        const nSpeed = gl.getUniformLocation(noiseProgram, "u_speedZ");
         const nOffset = gl.getUniformLocation(noiseProgram, "u_offset");
 
-        const cTex        = gl.getUniformLocation(compositeProgram, "u_noiseTex");
-        const cColor      = gl.getUniformLocation(compositeProgram, "u_color");
-        const cOpacity    = gl.getUniformLocation(compositeProgram, "u_opacity");
+        const cTex = gl.getUniformLocation(compositeProgram, "u_noiseTex");
+        const cColor = gl.getUniformLocation(compositeProgram, "u_color");
+        const cOpacity = gl.getUniformLocation(compositeProgram, "u_opacity");
+        const cBgColor = gl.getUniformLocation(compositeProgram, "u_bgColor");
+        const cBgOpacity = gl.getUniformLocation(compositeProgram, "u_bgOpacity");
         const cCAContrast = gl.getUniformLocation(compositeProgram, "u_caContrast");
-        const cCASamples  = gl.getUniformLocation(compositeProgram, "u_caSamples");
-        const cCASpread   = gl.getUniformLocation(compositeProgram, "u_caSpread");
-        const cCACenter   = gl.getUniformLocation(compositeProgram, "u_caCenter");
+        const cCASamples = gl.getUniformLocation(compositeProgram, "u_caSamples");
+        const cCASpread = gl.getUniformLocation(compositeProgram, "u_caSpread");
+        const cCACenter = gl.getUniformLocation(compositeProgram, "u_caCenter");
 
-        let offTex = null, offFbo = null, offW = 0, offH = 0;
+        let offTex = null;
+        let offFbo = null;
+        let offW = 0;
+        let offH = 0;
 
         function createOffscreen(w, h) {
           if (offTex) gl.deleteTexture(offTex);
@@ -730,39 +1107,39 @@ void main(){
           offFbo = gl.createFramebuffer();
           gl.bindFramebuffer(gl.FRAMEBUFFER, offFbo);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, offTex, 0);
-          if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+          if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
             throw new Error("Framebuffer incomplete");
+          }
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
           gl.bindTexture(gl.TEXTURE_2D, null);
-          offW = w; offH = h;
+          offW = w;
+          offH = h;
         }
 
         function configure() {
-          const dpr = Math.max(1, window.devicePixelRatio || 1);
-          const w = Math.max(1, Math.floor(canvas.clientWidth  * dpr));
-          const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+          const size = getTargetPixelSize();
+          const w = size.width;
+          const h = size.height;
           if (canvas.width !== w || canvas.height !== h) {
-            canvas.width = w; canvas.height = h;
+            canvas.width = w;
+            canvas.height = h;
           }
           if (!offTex || offW !== w || offH !== h) createOffscreen(w, h);
         }
-
-        activeConfigure = configure;
-        configure();
 
         gl.clearColor(0, 0, 0, 0);
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.CULL_FACE);
         gl.disable(gl.BLEND);
 
-        function frame(tMs) {
-          if (destroyed) return;
+        function renderAt(t, awaitSubmit = false) {
+          if (destroyed) return Promise.resolve();
           configure();
 
-          const t  = tMs * 0.001;
           const sp = getScaleParams();
           const ca = getCAParams();
-          const [cr, cg, cb] = getColorRgb();
+          const color = getColorRgb();
+          const bgColor = getBackgroundRgb();
 
           gl.bindVertexArray(vao);
 
@@ -783,8 +1160,10 @@ void main(){
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, offTex);
           gl.uniform1i(cTex, 0);
-          gl.uniform3f(cColor, cr, cg, cb);
+          gl.uniform3f(cColor, color[0], color[1], color[2]);
           gl.uniform1f(cOpacity, state.opacity);
+          gl.uniform3f(cBgColor, bgColor[0], bgColor[1], bgColor[2]);
+          gl.uniform1f(cBgOpacity, state.backgroundOpacity);
           gl.uniform1f(cCAContrast, ca.contrast);
           gl.uniform1f(cCASamples, ca.samples);
           gl.uniform1f(cCASpread, ca.spread);
@@ -795,68 +1174,118 @@ void main(){
           gl.bindTexture(gl.TEXTURE_2D, null);
           gl.bindVertexArray(null);
 
-          rafId = requestAnimationFrame(frame);
+          if (awaitSubmit) gl.finish();
+          return Promise.resolve();
         }
 
-        rafId = requestAnimationFrame(frame);
+        return {
+          configure,
+          renderAt,
+          destroy() {
+            try {
+              if (offTex) gl.deleteTexture(offTex);
+              if (offFbo) gl.deleteFramebuffer(offFbo);
+              if (vao) gl.deleteVertexArray(vao);
+              if (noiseProgram) gl.deleteProgram(noiseProgram);
+              if (compositeProgram) gl.deleteProgram(compositeProgram);
+            } catch (e) {}
+          },
+        };
       }
 
-      /* --- Mode switching --- */
       async function startMode(mode, allowFallback = true) {
         if (destroyed) return null;
+
         stopActive();
 
-        /* A canvas element can only ever have ONE context type.
-           Swap in a fresh <canvas> so we always get a clean slate. */
-        if (canvasTainted) {
-          replaceCanvas();
-        }
+        if (canvasTainted) replaceCanvas();
         canvasTainted = true;
 
         if (mode === "webgpu") {
           if (!navigator.gpu) {
-            if (allowFallback) return await startMode("webgl", false);
+            if (allowFallback) return startMode("webgl", false);
             return null;
           }
           try {
-            await startWebGPU();
+            currentBackend = await initWebGPU();
+            activeConfigure = currentBackend.configure;
             currentMode = "webgpu";
-            return "webgpu";
+            activeConfigure();
+            if (renderOptions.autoStart) startLoop();
+            return currentMode;
           } catch (e) {
             console.warn("WebGPU init failed:", e);
-            if (allowFallback) return await startMode("webgl", false);
-            return null;
-          }
-        } else if (mode === "webgl") {
-          try {
-            await startWebGL();
-            currentMode = "webgl";
-            return "webgl";
-          } catch (e) {
-            console.warn("WebGL init failed:", e);
-            if (allowFallback) return await startMode("webgpu", false);
+            if (allowFallback) return startMode("webgl", false);
             return null;
           }
         }
+
+        if (mode === "webgl") {
+          try {
+            currentBackend = await initWebGL();
+            activeConfigure = currentBackend.configure;
+            currentMode = "webgl";
+            activeConfigure();
+            if (renderOptions.autoStart) startLoop();
+            return currentMode;
+          } catch (e) {
+            console.warn("WebGL init failed:", e);
+            if (allowFallback) return startMode("webgpu", false);
+            return null;
+          }
+        }
+
         return null;
       }
 
-      /* --- Public API --- */
       const api = {
         get mode() { return currentMode; },
         get params() { return state; },
+        get canvas() { return canvas; },
 
         setParams(patch) {
           Object.assign(state, patch);
         },
 
         async switchMode(mode, allowFallback = true) {
-          return await startMode(mode, allowFallback);
+          return startMode(mode, allowFallback);
         },
 
         async nextMode() {
-          const next = modes[(modes.indexOf(currentMode) + 1) % modes.length];
-          return await startMode(next, true);
+          const idx = modes.indexOf(currentMode);
+          const next = modes[(idx + 1 + modes.length) % modes.length];
+          return startMode(next, true);
+        },
+
+        pause() {
+          renderOptions.autoStart = false;
+          stopLoop();
+        },
+
+        play() {
+          renderOptions.autoStart = true;
+          startLoop();
+        },
+
+        setPixelSize(width, height) {
+          renderOptions.fixedPixelWidth = width;
+          renderOptions.fixedPixelHeight = height;
+          if (activeConfigure) activeConfigure();
+        },
+
+        clearPixelSize() {
+          renderOptions.fixedPixelWidth = null;
+          renderOptions.fixedPixelHeight = null;
+          if (activeConfigure) activeConfigure();
+        },
+
+        resize() {
+          if (activeConfigure) activeConfigure();
+        },
+
+        async renderFrameAt(timeSeconds) {
+          if (!currentBackend) return;
+          await currentBackend.renderAt(timeSeconds, true);
         },
 
         destroy() {
@@ -866,56 +1295,62 @@ void main(){
         },
       };
 
-      /* --- Auto-start --- */
-      const initialMode = state.forceMode || (navigator.gpu ? "webgpu" : "webgl");
-      const boot = startMode(initialMode, !state.forceMode).then(() => api);
+      const initialMode =
+        state.forceMode ||
+        (renderOptions.preferStableCapture ? "webgl" : (navigator.gpu ? "webgpu" : "webgl"));
 
+      const boot = startMode(initialMode, !state.forceMode).then(() => api);
       api._ready = boot;
       return api;
     }
 
-
-    /* ============================================
-       Page-level UI wiring
-       ============================================ */
-    const statusEl      = document.getElementById("status");
+    const statusEl = document.getElementById("status");
     const toggleModeBtn = document.getElementById("toggleMode");
-    const toggleBgBtn   = document.getElementById("toggleBg");
+    const toggleBgBtn = document.getElementById("toggleBg");
+    const openExportBtn = document.getElementById("openExport");
+
     let bgMode = "black";
 
     function modeLabel(m) {
       if (m === "webgpu") return "WebGPU";
-      if (m === "webgl")  return "WebGL";
+      if (m === "webgl") return "WebGL";
       return m || "?";
     }
 
     function updateUI() {
       const m = instance.mode;
       const modes = ["webgpu", "webgl"];
-      const next = modes[(modes.indexOf(m) + 1) % modes.length];
+      const idx = modes.indexOf(m);
+      const next = modes[(idx + 1 + modes.length) % modes.length];
       toggleModeBtn.textContent = `Switch to ${modeLabel(next)}`;
       statusEl.textContent = `Mode: ${modeLabel(m)} - Background: ${bgMode === "image" ? "Image" : "Black"}`;
     }
 
     function applyBackground() {
-      if (bgMode === "image") document.body.classList.add("bg-image");
-      else document.body.classList.remove("bg-image");
+      document.body.style.backgroundColor = "#000000";
+      if (bgMode === "image") {
+        document.body.style.backgroundImage = 'url("https://images.unsplash.com/photo-1506905925346-21bda4d32df4")';
+      } else {
+        document.body.style.backgroundImage = "none";
+      }
       toggleBgBtn.textContent = bgMode === "image" ? "Background: Image" : "Background: Black";
       updateUI();
     }
 
     const instance = createPerlinAnimation(document.getElementById("c"), {
-      color:      "#ffffff",
-      opacity:    1,
-      scale:      1,
-      x:          42,
-      y:          42,
+      color: "#ffffff",
+      opacity: 1,
+      backgroundColor: "#000000",
+      backgroundOpacity: 0,
+      scale: 1,
+      x: 42,
+      y: 42,
       caContrast: 1,
-      caSamples:  32,
-      caSpread:   0.025,
-      caCenterX:  0.5,
-      caCenterY:  0.5,
-      forceMode:  null,
+      caSamples: 32,
+      caSpread: 0.025,
+      caCenterX: 0.5,
+      caCenterY: 0.5,
+      forceMode: null,
     });
 
     instance._ready.then(() => updateUI());
@@ -933,6 +1368,943 @@ void main(){
     });
 
     applyBackground();
+
+    const exportOverlay = document.getElementById("exportOverlay");
+    const closeExportBtn = document.getElementById("closeExport");
+    const startExportBtn = document.getElementById("startExport");
+    const cancelExportBtn = document.getElementById("cancelExport");
+    const downloadExportLink = document.getElementById("downloadExport");
+    const exportStatusEl = document.getElementById("exportStatus");
+    const exportEncodingInfoEl = document.getElementById("exportEncodingInfo");
+    const exportResultInfoEl = document.getElementById("exportResultInfo");
+    const exportProgressBarEl = document.getElementById("exportProgressBar");
+    const exportVideoPreview = document.getElementById("exportVideoPreview");
+    const expContainerEl = document.getElementById("expContainer");
+    const expCodecEl = document.getElementById("expCodec");
+
+    const exportInputs = {
+      fps: document.getElementById("expFps"),
+      duration: document.getElementById("expDuration"),
+      width: document.getElementById("expWidth"),
+      height: document.getElementById("expHeight"),
+      forceMode: document.getElementById("expForceMode"),
+      color: document.getElementById("expColor"),
+      opacity: document.getElementById("expOpacity"),
+      backgroundColor: document.getElementById("expBackgroundColor"),
+      backgroundOpacity: document.getElementById("expBackgroundOpacity"),
+      scale: document.getElementById("expScale"),
+      x: document.getElementById("expX"),
+      y: document.getElementById("expY"),
+      caContrast: document.getElementById("expCAContrast"),
+      caSamples: document.getElementById("expCASamples"),
+      caSpread: document.getElementById("expCASpread"),
+      caCenterX: document.getElementById("expCACenterX"),
+      caCenterY: document.getElementById("expCACenterY"),
+    };
+
+    const exportContainers = [
+      { value: "webm", label: "WebM" },
+      { value: "mp4", label: "MP4" },
+    ];
+
+    const exportFormatDefs = [
+      {
+        container: "webm",
+        codec: "vp8",
+        label: "VP8",
+        mimeType: "video/webm;codecs=vp8",
+        encoderCodec: "vp8",
+        muxerKind: "webm",
+        muxerCodec: "V_VP8",
+      },
+      {
+        container: "webm",
+        codec: "vp9",
+        label: "VP9",
+        mimeType: "video/webm;codecs=vp09.00.10.08",
+        encoderCodec: "vp09.00.10.08",
+        muxerKind: "webm",
+        muxerCodec: "V_VP9",
+      },
+      {
+        container: "webm",
+        codec: "av1",
+        label: "AV1",
+        mimeType: "video/webm;codecs=av01.0.08M.08",
+        encoderCodec: "av01.0.08M.08",
+        muxerKind: "webm",
+        muxerCodec: "V_AV1",
+      },
+      {
+        container: "mp4",
+        codec: "h264",
+        label: "H.264",
+        mimeType: "video/mp4",
+        encoderCodec: "avc1.42001E",
+        muxerKind: "mp4",
+        muxerCodec: "avc",
+      },
+      {
+        container: "mp4",
+        codec: "h265",
+        label: "H.265 / HEVC",
+        mimeType: "video/mp4;codecs=hvc1.1.6.L93.B0",
+        encoderCodec: "hvc1.1.6.L93.B0",
+        muxerKind: "mp4",
+        muxerCodec: "hevc",
+      },
+      {
+        container: "mp4",
+        codec: "av1",
+        label: "AV1",
+        mimeType: "video/mp4;codecs=av01.0.08M.08",
+        encoderCodec: "av01.0.08M.08",
+        muxerKind: "mp4",
+        muxerCodec: "av1",
+      },
+    ];
+
+    const exportSupportState = {
+      ready: false,
+      loading: false,
+      error: "",
+      webmMuxer: null,
+      mp4Muxer: null,
+    };
+
+    let exportFormats = exportFormatDefs.map((format) => ({
+      ...format,
+      supported: false,
+    }));
+
+    const exportState = {
+      busy: false,
+      cancelRequested: false,
+      cancelController: null,
+      instance: null,
+      previewUrl: "",
+    };
+
+    function getExportCanvasElement() {
+      return document.getElementById("exportCanvasPreview");
+    }
+
+    function revokePreviewUrl() {
+      if (exportState.previewUrl) {
+        URL.revokeObjectURL(exportState.previewUrl);
+        exportState.previewUrl = "";
+      }
+    }
+
+    function setExportStatus(text, isError = false) {
+      exportStatusEl.textContent = text;
+      exportStatusEl.style.color = isError ? "#fca5a5" : "#d4d4d8";
+    }
+
+    function setExportProgress(percent) {
+      const p = Math.max(0, Math.min(100, percent));
+      exportProgressBarEl.style.width = `${p}%`;
+    }
+
+    function formatBytes(bytes) {
+      const units = ["B", "KB", "MB", "GB"];
+      let value = bytes;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit += 1;
+      }
+      return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)} ${units[unit]}`;
+    }
+
+    function clampNumber(value, min, max, fallback) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.min(max, Math.max(min, n));
+    }
+
+    function readExportSettings() {
+      return {
+        fps: Math.round(clampNumber(exportInputs.fps.value, 1, 1000, 30)),
+        duration: clampNumber(exportInputs.duration.value, 0.001, 3600, 10),
+        width: Math.round(clampNumber(exportInputs.width.value, 1, 32768, 1024)),
+        height: Math.round(clampNumber(exportInputs.height.value, 1, 32768, 1024)),
+        color: exportInputs.color.value || "#ffffff",
+        opacity: clampNumber(exportInputs.opacity.value, 0, 1, 1),
+        backgroundColor: exportInputs.backgroundColor.value || "#000000",
+        backgroundOpacity: clampNumber(exportInputs.backgroundOpacity.value, 0, 1, 1),
+        scale: clampNumber(exportInputs.scale.value, 0.001, 1000, 1),
+        x: clampNumber(exportInputs.x.value, -1000000, 1000000, 42),
+        y: clampNumber(exportInputs.y.value, -1000000, 1000000, 42),
+        caContrast: clampNumber(exportInputs.caContrast.value, -100, 100, 1),
+        caSamples: Math.round(clampNumber(exportInputs.caSamples.value, 2, 65536, 32)),
+        caSpread: clampNumber(exportInputs.caSpread.value, -100, 100, 0.025),
+        caCenterX: clampNumber(exportInputs.caCenterX.value, -100, 100, 0.5),
+        caCenterY: clampNumber(exportInputs.caCenterY.value, -100, 100, 0.5),
+        forceMode: exportInputs.forceMode.value || null,
+      };
+    }
+
+    function estimateVideoBitrate(width, height, fps, codec) {
+      const pixelsPerSecond = width * height * fps;
+      let factor = 0.18;
+      if (codec === "av1") factor = 0.04;
+      else if (codec === "h265") factor = 0.14;
+      else if (codec === "h264") factor = 0.2;
+      else if (codec === "vp9") factor = 0.15;
+      else if (codec === "vp8") factor = 0.18;
+      const bitrate = Math.round(pixelsPerSecond * factor);
+      return Math.max(500_000, Math.min(50_000_000, bitrate));
+    }
+
+    function getSelectedExportFormat() {
+      const container = expContainerEl.value;
+      const codec = expCodecEl.value;
+      return exportFormats.find((f) => f.container === container && f.codec === codec) || null;
+    }
+
+    function makeCancelError() {
+      const err = new Error("__EXPORT_CANCELLED__");
+      err.code = "EXPORT_CANCELLED";
+      return err;
+    }
+
+    function isCancelError(error) {
+      return !!error && (error.code === "EXPORT_CANCELLED" || error.message === "__EXPORT_CANCELLED__");
+    }
+
+    function createCancelController() {
+      let aborted = false;
+      let rejectPromise = null;
+
+      const promise = new Promise((_, reject) => {
+        rejectPromise = reject;
+      });
+
+      return {
+        get aborted() {
+          return aborted;
+        },
+        cancel() {
+          if (aborted) return;
+          aborted = true;
+          rejectPromise(makeCancelError());
+        },
+        throwIfCancelled() {
+          if (aborted) throw makeCancelError();
+        },
+        promise,
+      };
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function sleepCancelable(ms, controller) {
+      controller.throwIfCancelled();
+      await Promise.race([sleep(ms), controller.promise]);
+      controller.throwIfCancelled();
+    }
+
+    async function yieldToMainThread(controller) {
+      await sleepCancelable(0, controller);
+    }
+
+    function makeMimeType(container, codecString) {
+      const base = container === "mp4" ? "video/mp4" : "video/webm";
+      return codecString ? `${base};codecs=${codecString}` : base;
+    }
+
+    const H264_LEVELS = [
+      { hex: "1e", maxFS: 1620, maxMBPS: 40500 },
+      { hex: "1f", maxFS: 3600, maxMBPS: 108000 },
+      { hex: "20", maxFS: 5120, maxMBPS: 216000 },
+      { hex: "28", maxFS: 8192, maxMBPS: 245760 },
+      { hex: "29", maxFS: 8192, maxMBPS: 245760 },
+      { hex: "2a", maxFS: 8704, maxMBPS: 522240 },
+      { hex: "32", maxFS: 22080, maxMBPS: 589824 },
+      { hex: "33", maxFS: 36864, maxMBPS: 983040 },
+      { hex: "34", maxFS: 36864, maxMBPS: 2073600 },
+    ];
+
+    function getH264RequiredLevelStartIndex(settings) {
+      const mbWidth = Math.ceil(settings.width / 16);
+      const mbHeight = Math.ceil(settings.height / 16);
+      const frameMacroblocks = mbWidth * mbHeight;
+      const macroblocksPerSecond = frameMacroblocks * settings.fps;
+
+      let index = 0;
+      while (
+        index < H264_LEVELS.length &&
+        (frameMacroblocks > H264_LEVELS[index].maxFS || macroblocksPerSecond > H264_LEVELS[index].maxMBPS)
+      ) {
+        index += 1;
+      }
+
+      return Math.min(index, H264_LEVELS.length - 1);
+    }
+
+    function getH264CodecCandidates(settings) {
+      const prefixes = [
+        "42e0",
+        "4200",
+        "4d00",
+        "6400",
+      ];
+
+      const startIndex = getH264RequiredLevelStartIndex(settings);
+      const codecs = [];
+      const seen = new Set();
+
+      for (let i = startIndex; i < H264_LEVELS.length; i += 1) {
+        const levelHex = H264_LEVELS[i].hex;
+        for (const prefix of prefixes) {
+          const codec = `avc1.${prefix}${levelHex}`;
+          if (!seen.has(codec)) {
+            seen.add(codec);
+            codecs.push(codec);
+          }
+        }
+      }
+
+      for (let i = startIndex - 1; i >= 0; i -= 1) {
+        const levelHex = H264_LEVELS[i].hex;
+        for (const prefix of prefixes) {
+          const codec = `avc1.${prefix}${levelHex}`;
+          if (!seen.has(codec)) {
+            seen.add(codec);
+            codecs.push(codec);
+          }
+        }
+      }
+
+      return codecs;
+    }
+
+    function createVideoFrameCaptureSurface(width, height) {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d", { alpha: true, desynchronized: false });
+      if (!ctx) throw new Error("Failed to create a 2D capture surface.");
+      ctx.imageSmoothingEnabled = true;
+      return { canvas, ctx, width, height };
+    }
+
+    function copyCanvasToCaptureSurface(sourceCanvas, captureSurface) {
+      const { ctx, width, height } = captureSurface;
+      ctx.save();
+      ctx.globalCompositeOperation = "copy";
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(sourceCanvas, 0, 0, width, height);
+      ctx.restore();
+    }
+
+    function getVideoEncoderConfigCandidates(format, settings) {
+      const base = {
+        codec: format.encoderCodec,
+        width: settings.width,
+        height: settings.height,
+        bitrate: estimateVideoBitrate(settings.width, settings.height, settings.fps, format.codec),
+        framerate: settings.fps,
+      };
+
+      const candidates = [];
+      const seen = new Set();
+
+      const pushCandidate = (config) => {
+        const key = JSON.stringify(config);
+        if (seen.has(key)) return;
+        seen.add(key);
+        candidates.push(config);
+      };
+
+      if (format.codec === "h264") {
+        const h264Codecs = getH264CodecCandidates(settings);
+
+        for (const codec of h264Codecs) {
+          const codecBase = { ...base, codec };
+
+          pushCandidate({
+            ...codecBase,
+            bitrateMode: "variable",
+            latencyMode: "realtime",
+            avc: { format: "avc" },
+          });
+
+          pushCandidate({
+            ...codecBase,
+            latencyMode: "realtime",
+            avc: { format: "avc" },
+          });
+
+          pushCandidate({
+            ...codecBase,
+            avc: { format: "avc" },
+          });
+
+          pushCandidate({
+            ...codecBase,
+            bitrateMode: "variable",
+            latencyMode: "realtime",
+            avc: { format: "annexb" },
+          });
+
+          pushCandidate({
+            ...codecBase,
+            avc: { format: "annexb" },
+          });
+
+          pushCandidate({
+            ...codecBase,
+            bitrateMode: "variable",
+            latencyMode: "realtime",
+          });
+
+          pushCandidate(codecBase);
+        }
+
+        return candidates;
+      }
+
+      pushCandidate({
+        ...base,
+        bitrateMode: "variable",
+        latencyMode: "realtime",
+      });
+
+      pushCandidate({
+        ...base,
+        latencyMode: "realtime",
+      });
+
+      pushCandidate({
+        ...base,
+        bitrateMode: "variable",
+      });
+
+      pushCandidate(base);
+
+      return candidates;
+    }
+
+    async function pickSupportedVideoEncoderConfig(format, settings) {
+      if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
+
+      const candidates = getVideoEncoderConfigCandidates(format, settings);
+      for (const candidate of candidates) {
+        try {
+          const support = await VideoEncoder.isConfigSupported(candidate);
+          if (support && support.supported) {
+            return support.config || candidate;
+          }
+        } catch (e) {}
+      }
+
+      return null;
+    }
+
+    function resetPreviewSurface(width, height) {
+      const canvas = getExportCanvasElement();
+      canvas.classList.remove("hidden");
+      canvas.width = width;
+      canvas.height = height;
+
+      exportVideoPreview.pause();
+      exportVideoPreview.removeAttribute("src");
+      exportVideoPreview.load();
+      exportVideoPreview.classList.add("hidden");
+
+      downloadExportLink.classList.add("hidden");
+      downloadExportLink.removeAttribute("href");
+
+      exportResultInfoEl.textContent = "";
+      setExportProgress(0);
+    }
+
+    function cleanupExportRuntime() {
+      if (exportState.instance) {
+        try { exportState.instance.destroy(); } catch (e) {}
+      }
+      exportState.instance = null;
+      exportState.cancelController = null;
+    }
+
+    async function loadMuxerModules() {
+      const [webmResult, mp4Result] = await Promise.allSettled([
+        import("https://cdn.jsdelivr.net/npm/webm-muxer/+esm"),
+        import("https://cdn.jsdelivr.net/npm/mp4-muxer/+esm"),
+      ]);
+
+      if (webmResult.status === "fulfilled") {
+        exportSupportState.webmMuxer = webmResult.value;
+      }
+
+      if (mp4Result.status === "fulfilled") {
+        exportSupportState.mp4Muxer = mp4Result.value;
+      }
+    }
+
+    async function detectFormatSupport(format) {
+      if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return false;
+
+      if (format.muxerKind === "webm" && !exportSupportState.webmMuxer) return false;
+      if (format.muxerKind === "mp4" && !exportSupportState.mp4Muxer) return false;
+
+      try {
+        const config = await pickSupportedVideoEncoderConfig(format, {
+          width: 640,
+          height: 360,
+          fps: 30,
+        });
+        return !!config;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function initializeExportSupport() {
+      exportSupportState.loading = true;
+      exportSupportState.ready = false;
+      exportSupportState.error = "";
+
+      try {
+        await loadMuxerModules();
+
+        exportFormats = await Promise.all(
+          exportFormatDefs.map(async (format) => ({
+            ...format,
+            supported: await detectFormatSupport(format),
+          }))
+        );
+
+        exportSupportState.ready = true;
+      } catch (e) {
+        exportSupportState.error = e && e.message ? e.message : String(e);
+        exportFormats = exportFormatDefs.map((format) => ({
+          ...format,
+          supported: false,
+        }));
+      } finally {
+        exportSupportState.loading = false;
+        refreshContainerOptions();
+        refreshEncodingInfo();
+        syncExportButtons();
+      }
+    }
+
+    function createMuxerForFormat(format, settings) {
+      if (format.muxerKind === "webm") {
+        const { Muxer, ArrayBufferTarget } = exportSupportState.webmMuxer;
+        const target = new ArrayBufferTarget();
+        const muxer = new Muxer({
+          target,
+          video: {
+            codec: format.muxerCodec,
+            width: settings.width,
+            height: settings.height,
+            frameRate: settings.fps,
+          },
+          firstTimestampBehavior: "offset",
+        });
+
+        return {
+          addVideoChunk(chunk, meta) {
+            muxer.addVideoChunk(chunk, meta);
+          },
+          finalize() {
+            muxer.finalize();
+            return target.buffer;
+          },
+        };
+      }
+
+      if (format.muxerKind === "mp4") {
+        const { Muxer, ArrayBufferTarget } = exportSupportState.mp4Muxer;
+        const target = new ArrayBufferTarget();
+        const muxer = new Muxer({
+          target,
+          fastStart: "in-memory",
+          video: {
+            codec: format.muxerCodec,
+            width: settings.width,
+            height: settings.height,
+            frameRate: settings.fps,
+          },
+        });
+
+        return {
+          addVideoChunk(chunk, meta) {
+            muxer.addVideoChunk(chunk, meta);
+          },
+          finalize() {
+            muxer.finalize();
+            return target.buffer;
+          },
+        };
+      }
+
+      throw new Error("Unsupported muxer kind.");
+    }
+
+    function refreshCodecOptions() {
+      const currentCodec = expCodecEl.value;
+      const selectedContainer = expContainerEl.value;
+      const formats = exportFormats.filter((f) => f.container === selectedContainer);
+
+      expCodecEl.innerHTML = "";
+      let firstSupportedCodec = "";
+
+      for (const format of formats) {
+        const opt = document.createElement("option");
+        opt.value = format.codec;
+        opt.textContent = format.supported ? format.label : `${format.label} (unsupported)`;
+        opt.disabled = !format.supported;
+        expCodecEl.appendChild(opt);
+        if (format.supported && !firstSupportedCodec) firstSupportedCodec = format.codec;
+      }
+
+      const hasCurrentSupported = formats.some((f) => f.codec === currentCodec && f.supported);
+      if (hasCurrentSupported) expCodecEl.value = currentCodec;
+      else expCodecEl.value = firstSupportedCodec;
+
+      refreshEncodingInfo();
+    }
+
+    function refreshContainerOptions() {
+      const currentContainer = expContainerEl.value;
+      expContainerEl.innerHTML = "";
+      let firstSupportedContainer = "";
+
+      for (const container of exportContainers) {
+        const hasSupported = exportFormats.some((f) => f.container === container.value && f.supported);
+        const opt = document.createElement("option");
+        opt.value = container.value;
+        opt.textContent = hasSupported ? container.label : `${container.label} (unsupported)`;
+        opt.disabled = !hasSupported;
+        expContainerEl.appendChild(opt);
+        if (hasSupported && !firstSupportedContainer) firstSupportedContainer = container.value;
+      }
+
+      const currentStillSupported = exportFormats.some((f) => f.container === currentContainer && f.supported);
+      if (currentStillSupported) expContainerEl.value = currentContainer;
+      else expContainerEl.value = firstSupportedContainer;
+
+      refreshCodecOptions();
+    }
+
+    function refreshEncodingInfo() {
+      if (!exportSupportState.ready) {
+        exportEncodingInfoEl.textContent =
+          exportSupportState.loading
+            ? "Checking offline codec support..."
+            : exportSupportState.error
+              ? `Offline export unavailable: ${exportSupportState.error}`
+              : "Offline export support not ready yet.";
+        syncExportButtons();
+        return;
+      }
+
+      if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") {
+        exportEncodingInfoEl.textContent = "WebCodecs is not available in this browser.";
+        syncExportButtons();
+        return;
+      }
+
+      const format = getSelectedExportFormat();
+      if (!format || !format.supported) {
+        exportEncodingInfoEl.textContent = "No supported offline container and codec pair is currently selected.";
+      } else {
+        const settings = readExportSettings();
+        const bitrate = estimateVideoBitrate(settings.width, settings.height, settings.fps, format.codec);
+        exportEncodingInfoEl.textContent =
+          `Offline encode: ${format.container.toUpperCase()} / ${format.label} - ${format.mimeType} - est. ${(bitrate / 1000000).toFixed(2)} Mbps`;
+      }
+
+      syncExportButtons();
+    }
+
+    function syncExportButtons() {
+      const format = getSelectedExportFormat();
+      startExportBtn.disabled =
+        exportState.busy ||
+        !exportSupportState.ready ||
+        !format ||
+        !format.supported;
+
+      cancelExportBtn.disabled = !exportState.busy;
+      closeExportBtn.disabled = exportState.busy;
+      expContainerEl.disabled = exportState.busy || !exportSupportState.ready;
+      expCodecEl.disabled = exportState.busy || !exportSupportState.ready;
+
+      for (const el of Object.values(exportInputs)) {
+        el.disabled = exportState.busy;
+      }
+    }
+
+    function showExportOverlay() {
+      exportOverlay.classList.remove("hidden");
+      exportOverlay.classList.add("flex");
+      refreshContainerOptions();
+      refreshEncodingInfo();
+      syncExportButtons();
+    }
+
+    function hideExportOverlay() {
+      if (exportState.busy) return;
+      exportOverlay.classList.add("hidden");
+      exportOverlay.classList.remove("flex");
+    }
+
+    async function generateExportVideo() {
+      if (exportState.busy) return;
+
+      const format = getSelectedExportFormat();
+      if (!format || !format.supported) {
+        setExportStatus("Selected offline encoding is not supported in this browser.", true);
+        syncExportButtons();
+        return;
+      }
+
+      const settings = readExportSettings();
+      revokePreviewUrl();
+      resetPreviewSurface(settings.width, settings.height);
+
+      exportState.busy = true;
+      exportState.cancelRequested = false;
+      exportState.cancelController = createCancelController();
+      syncExportButtons();
+
+      setExportStatus("Initializing renderer...");
+      instance.pause();
+
+      let encoder = null;
+
+      try {
+        const previewCanvas = getExportCanvasElement();
+        const exportInstance = createPerlinAnimation(previewCanvas, {
+          color: settings.color,
+          opacity: settings.opacity,
+          backgroundColor: settings.backgroundColor,
+          backgroundOpacity: settings.backgroundOpacity,
+          scale: settings.scale,
+          x: settings.x,
+          y: settings.y,
+          caContrast: settings.caContrast,
+          caSamples: settings.caSamples,
+          caSpread: settings.caSpread,
+          caCenterX: settings.caCenterX,
+          caCenterY: settings.caCenterY,
+          forceMode: settings.forceMode,
+          autoStart: false,
+          fixedPixelWidth: settings.width,
+          fixedPixelHeight: settings.height,
+          preferStableCapture: true,
+        });
+
+        exportState.instance = exportInstance;
+        await exportInstance._ready;
+        exportState.cancelController.throwIfCancelled();
+
+        if (!exportInstance.mode) {
+          throw new Error("Failed to initialize the requested rendering backend for export.");
+        }
+
+        const sourceCanvas = exportInstance.canvas;
+        sourceCanvas.classList.remove("hidden");
+
+        const encoderConfig = await pickSupportedVideoEncoderConfig(format, settings);
+        exportState.cancelController.throwIfCancelled();
+
+        if (!encoderConfig) {
+          throw new Error("The selected codec is not supported for this resolution or frame rate.");
+        }
+
+        const outputMimeType = makeMimeType(format.container, encoderConfig.codec || "");
+        const captureSurface = createVideoFrameCaptureSurface(settings.width, settings.height);
+
+        await exportInstance.renderFrameAt(0);
+        copyCanvasToCaptureSurface(sourceCanvas, captureSurface);
+
+        const muxer = createMuxerForFormat(format, settings);
+        let encoderError = null;
+
+        const ensureEncoderHealthy = () => {
+          if (encoderError) throw encoderError;
+          if (!encoder || encoder.state !== "configured") {
+            throw new Error("Video encoder closed unexpectedly.");
+          }
+        };
+
+        const flushEncoder = async () => {
+          try {
+            await encoder.flush();
+          } catch (error) {
+            throw encoderError || error;
+          }
+          ensureEncoderHealthy();
+        };
+
+        encoder = new VideoEncoder({
+          output(chunk, meta) {
+            muxer.addVideoChunk(chunk, meta);
+          },
+          error(error) {
+            encoderError = error;
+          },
+        });
+
+        encoder.configure(encoderConfig);
+        ensureEncoderHealthy();
+
+        const totalFrames = Math.max(1, Math.round(settings.duration * settings.fps));
+        const frameDurationUs = Math.round(1000000 / settings.fps);
+        const keyFrameInterval = Math.max(1, Math.round(settings.fps));
+        const flushInterval = (format.codec === "h264" || format.codec === "h265") ? 8 : 16;
+        const maxQueueSize = (format.codec === "h264" || format.codec === "h265") ? 2 : 4;
+
+        const codecNote = encoderConfig.codec ? ` (${encoderConfig.codec})` : "";
+        setExportStatus(`Offline encoding ${totalFrames} frames in ${modeLabel(exportInstance.mode)} using ${format.label}${codecNote}...`);
+
+        for (let frameIndex = 0; frameIndex < totalFrames; frameIndex += 1) {
+          exportState.cancelController.throwIfCancelled();
+          ensureEncoderHealthy();
+
+          const timeSeconds = frameIndex / settings.fps;
+          const timestampUs = Math.round((frameIndex * 1000000) / settings.fps);
+
+          await exportInstance.renderFrameAt(timeSeconds);
+          exportState.cancelController.throwIfCancelled();
+
+          copyCanvasToCaptureSurface(sourceCanvas, captureSurface);
+
+          const frame = new VideoFrame(captureSurface.canvas, {
+            timestamp: timestampUs,
+            duration: frameDurationUs,
+          });
+
+          try {
+            ensureEncoderHealthy();
+            encoder.encode(frame, {
+              keyFrame: frameIndex === 0 || frameIndex % keyFrameInterval === 0,
+            });
+          } catch (error) {
+            throw encoderError || error;
+          } finally {
+            frame.close();
+          }
+
+          ensureEncoderHealthy();
+
+          if (encoder.encodeQueueSize > maxQueueSize || (frameIndex + 1) % flushInterval === 0) {
+            await flushEncoder();
+          }
+
+          if (frameIndex % 4 === 0) {
+            await yieldToMainThread(exportState.cancelController);
+            ensureEncoderHealthy();
+          }
+
+          setExportProgress(((frameIndex + 1) / totalFrames) * 100);
+          setExportStatus(`Encoding frame ${frameIndex + 1} / ${totalFrames}...`);
+        }
+
+        await flushEncoder();
+
+        const buffer = muxer.finalize();
+        const blob = new Blob([buffer], { type: outputMimeType });
+        const url = URL.createObjectURL(blob);
+        exportState.previewUrl = url;
+
+        sourceCanvas.classList.add("hidden");
+
+        downloadExportLink.href = url;
+        downloadExportLink.download = `perlin-${settings.width}x${settings.height}-${settings.fps}fps.${format.container}`;
+        downloadExportLink.classList.remove("hidden");
+
+        exportVideoPreview.src = url;
+        exportVideoPreview.classList.remove("hidden");
+        exportVideoPreview.play().catch(() => {});
+
+        const canPlay = !!exportVideoPreview.canPlayType(outputMimeType);
+        exportResultInfoEl.textContent =
+          `Generated ${format.container.toUpperCase()} / ${format.label} - ${outputMimeType} - ${formatBytes(blob.size)}${canPlay ? "" : " - this browser may not preview this file even though it encoded it"}`;
+
+        setExportStatus("Export finished.");
+        setExportProgress(100);
+      } catch (error) {
+        if (isCancelError(error) || exportState.cancelRequested) {
+          setExportStatus("Export cancelled.");
+          setExportProgress(0);
+        } else {
+          const message = error && error.message ? error.message : String(error);
+          setExportStatus(message, true);
+        }
+      } finally {
+        if (encoder) {
+          try { encoder.close(); } catch (e) {}
+        }
+
+        cleanupExportRuntime();
+
+        exportState.busy = false;
+        exportState.cancelRequested = false;
+        syncExportButtons();
+        instance.play();
+      }
+    }
+
+    openExportBtn.addEventListener("click", showExportOverlay);
+    closeExportBtn.addEventListener("click", hideExportOverlay);
+
+    exportOverlay.addEventListener("click", (event) => {
+      if (event.target === exportOverlay) hideExportOverlay();
+    });
+
+    cancelExportBtn.addEventListener("click", () => {
+      if (!exportState.busy) return;
+      exportState.cancelRequested = true;
+      setExportStatus("Cancel requested...");
+      if (exportState.cancelController) exportState.cancelController.cancel();
+    });
+
+    startExportBtn.addEventListener("click", () => {
+      generateExportVideo();
+    });
+
+    expContainerEl.addEventListener("change", refreshCodecOptions);
+    expCodecEl.addEventListener("change", refreshEncodingInfo);
+
+    for (const el of [
+      exportInputs.fps,
+      exportInputs.duration,
+      exportInputs.width,
+      exportInputs.height,
+      exportInputs.forceMode,
+      exportInputs.color,
+      exportInputs.opacity,
+      exportInputs.backgroundColor,
+      exportInputs.backgroundOpacity,
+      exportInputs.scale,
+      exportInputs.x,
+      exportInputs.y,
+      exportInputs.caContrast,
+      exportInputs.caSamples,
+      exportInputs.caSpread,
+      exportInputs.caCenterX,
+      exportInputs.caCenterY,
+    ]) {
+      el.addEventListener("input", refreshEncodingInfo);
+      el.addEventListener("change", refreshEncodingInfo);
+    }
+
+    window.addEventListener("beforeunload", () => {
+      revokePreviewUrl();
+      cleanupExportRuntime();
+    });
+
+    initializeExportSupport();
   </script>
 </body>
 </html>
