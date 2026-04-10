@@ -87,6 +87,19 @@
         <p id="promptHelp" class="text-xs text-zinc-500">You can paste PNG/JPEG/GIF/WebP images. Max 32 images, 256 MiB each.</p>
       </div>
 
+      <!-- Assistant Prefill Toggle + Box -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-end gap-3">
+          <span id="prefillStatus" class="text-xs text-zinc-500">Disabled</span>
+          <button id="togglePrefill" class="px-3 py-2 text-sm bg-zinc-700 hover:bg-zinc-600 rounded-lg border border-border">Enable Assistant Prefill</button>
+        </div>
+        <div id="prefillContainer" class="hidden space-y-2">
+          <label for="assistantPrefill" class="block text-sm text-zinc-300">Assistant Prefill</label>
+          <textarea id="assistantPrefill" rows="5" class="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/60" placeholder="Pre-fill text for the assistant response."></textarea>
+          <p id="prefillHelp" class="text-xs text-zinc-500">This text is sent as an assistant message after the user prompt.</p>
+        </div>
+      </div>
+
       <!-- Image Size / Quality -->
       <div class="space-y-2">
         <label id="imageSizeLabel" for="imageSize" class="block text-sm text-zinc-300">Image Size</label>
@@ -265,11 +278,11 @@
       images: [],
       maxImages: 32,
       maxBytes: 256 * 1024 * 1024,
+      prefillEnabled: false,
       ui: {
-        // in-memory only (kept while the tab is open; NOT persisted across refresh)
-        imageSizeMode: null,     // 'size' | 'quality'
-        savedSize: '1K',         // shared by Google + OpenRouter
-        savedQuality: 'low'      // OpenAI only
+        imageSizeMode: null,
+        savedSize: '1K',
+        savedQuality: 'low'
       }
     };
 
@@ -318,6 +331,11 @@
       systemMsgHelp: $('#systemMsgHelp'),
       prompt: $('#prompt'),
       promptHelp: $('#promptHelp'),
+      togglePrefill: $('#togglePrefill'),
+      prefillStatus: $('#prefillStatus'),
+      prefillContainer: $('#prefillContainer'),
+      assistantPrefill: $('#assistantPrefill'),
+      prefillHelp: $('#prefillHelp'),
       imageSizeLabel: $('#imageSizeLabel'),
       imageSize: $('#imageSize'),
       imageSizeHelp: $('#imageSizeHelp'),
@@ -375,6 +393,53 @@
     function loadSystemMsg() { return localStorage.getItem(SYSTEM_MSG_KEY) || ''; }
     function saveSystemMsg() { localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value); }
     els.systemMsg.addEventListener('input', saveSystemMsg);
+
+    // --- Assistant Prefill ---
+    function isPrefillSupported() {
+      return state.provider !== 'openai';
+    }
+
+    function updatePrefillUI() {
+      const supported = isPrefillSupported();
+
+      if (!supported) {
+        // Force disable for OpenAI
+        state.prefillEnabled = false;
+        els.prefillContainer.classList.add('hidden');
+        els.togglePrefill.textContent = 'Enable Assistant Prefill';
+        els.togglePrefill.disabled = true;
+        els.togglePrefill.classList.add('opacity-40', 'cursor-not-allowed');
+        els.togglePrefill.classList.remove('hover:bg-zinc-600');
+        els.prefillStatus.textContent = 'Not supported for this provider';
+        return;
+      }
+
+      els.togglePrefill.disabled = false;
+      els.togglePrefill.classList.remove('opacity-40', 'cursor-not-allowed');
+      els.togglePrefill.classList.add('hover:bg-zinc-600');
+
+      if (state.prefillEnabled) {
+        els.togglePrefill.textContent = 'Disable Assistant Prefill';
+        els.prefillStatus.textContent = 'Enabled';
+        els.prefillContainer.classList.remove('hidden');
+      } else {
+        els.togglePrefill.textContent = 'Enable Assistant Prefill';
+        els.prefillStatus.textContent = 'Disabled';
+        els.prefillContainer.classList.add('hidden');
+      }
+    }
+
+    els.togglePrefill.addEventListener('click', () => {
+      if (!isPrefillSupported()) return;
+      state.prefillEnabled = !state.prefillEnabled;
+      updatePrefillUI();
+    });
+
+    function getPrefillText() {
+      if (!state.prefillEnabled || !isPrefillSupported()) return null;
+      return els.assistantPrefill.value || '';
+    }
+    // --- End Assistant Prefill ---
 
     const PROVIDERS = {
       google: {
@@ -481,7 +546,6 @@
     function ensureImageSizeMode(mode) {
       if (state.ui.imageSizeMode === mode) return;
 
-      // preserve current selection when switching modes (within this page session)
       if (state.ui.imageSizeMode) saveCurrentImageSizeSelection();
 
       state.ui.imageSizeMode = mode;
@@ -518,12 +582,13 @@
 
       ensureImageSizeMode(isOpenAI ? 'quality' : 'size');
 
-      // Grey out unsupported aspect ratios for OpenAI (keep the same help text)
       const allowedAspect = new Set(['', '1:1', '3:2', '2:3']);
       $$('option', els.aspectRatio).forEach(opt => {
         opt.disabled = isOpenAI && !allowedAspect.has(opt.value);
       });
       if (isOpenAI && !allowedAspect.has(els.aspectRatio.value)) els.aspectRatio.value = '';
+
+      updatePrefillUI();
     }
 
     function applyProviderUI() {
@@ -541,7 +606,6 @@
       clearInfo();
     }
 
-    // Keep selection synced in-memory while staying on the page (NOT across refresh)
     els.imageSize.addEventListener('change', saveCurrentImageSizeSelection);
 
     // --- Paste & uploads ---
@@ -632,6 +696,13 @@
       const imageSize = els.imageSize.value;
 
       const body = { contents: [{ role: 'user', parts }] };
+
+      // Assistant prefill
+      const prefill = getPrefillText();
+      if (prefill !== null) {
+        body.contents.push({ role: 'model', parts: [{ text: prefill }] });
+      }
+
       if (sysText) body.system_instruction = { parts: [{ text: sysText }] };
 
       const config = {};
@@ -659,6 +730,12 @@
       const messages = [];
       if (sysText) messages.push({ role: 'system', content: sysText });
       messages.push({ role: 'user', content });
+
+      // Assistant prefill
+      const prefill = getPrefillText();
+      if (prefill !== null) {
+        messages.push({ role: 'assistant', content: prefill });
+      }
 
       const payload = {
         model: state.model,
@@ -707,7 +784,7 @@
       const combinedPrompt = sysText ? `${sysText}\n\n${prompt}` : prompt;
 
       const size = openaiSizeFromAspectRatio(els.aspectRatio.value);
-      const quality = (els.imageSize.value || 'low'); // in OpenAI mode imageSize select = quality
+      const quality = (els.imageSize.value || 'low');
 
       const hasImages = state.images.length > 0;
       if (hasImages) {
@@ -916,7 +993,6 @@
             const node = els.resultImageTpl?.content?.firstElementChild?.cloneNode(true);
             if (!node) throw new Error('Image template not found in DOM.');
 
-            // Thought images: keep same background as normal, but add blue outline + badge
             if (isThought) {
               node.classList.remove('border-border');
               node.classList.add('border-thought/50');
