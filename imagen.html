@@ -130,6 +130,10 @@
             <option value="9:16">9:16 - Tall</option>
             <option value="16:9">16:9 - Wide</option>
             <option value="21:9">21:9 - Ultrawide</option>
+            <option value="1:4" data-flash-only="true">1:4 - Narrow Tall</option>
+            <option value="4:1" data-flash-only="true">4:1 - Narrow Wide</option>
+            <option value="1:8" data-flash-only="true">1:8 - Ultra Tall</option>
+            <option value="8:1" data-flash-only="true">8:1 - Ultra Wide</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -179,12 +183,8 @@
 
         <template id="resultImageTpl">
           <div class="rounded-lg overflow-hidden border border-border relative flex flex-col aspect-square" data-role="card">
-            <!-- Thought Badge -->
             <div class="hidden absolute top-2 left-2 bg-thought/90 text-white text-[10px] font-bold px-2 py-1 rounded z-10 shadow-lg uppercase tracking-wider pointer-events-none" data-role="thought-badge">Thought Process</div>
-
-            <!-- Resolution Badge (Output) -->
             <div class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-mono px-2 py-1 rounded z-10 pointer-events-none" data-role="res-badge"></div>
-
             <div class="bg-black/30 flex-1 flex items-center justify-center relative min-h-0">
               <img class="max-h-full max-w-full object-scale-down cursor-pointer" />
             </div>
@@ -200,12 +200,10 @@
 
         <template id="resultTextTpl">
           <div class="rounded-lg overflow-hidden border border-border bg-black/20 relative flex flex-col aspect-square" data-role="card">
-            <!-- Thought Header -->
             <div class="hidden bg-thought/20 border-b border-thought/30 px-3 py-1 flex items-center gap-2" data-role="thought-header">
               <div class="w-2 h-2 rounded-full bg-thought"></div>
               <span class="text-[10px] font-bold text-thought uppercase tracking-wider">Reasoning</span>
             </div>
-
             <div class="p-3 text-xs text-zinc-400 border-b border-border flex justify-between items-center" data-role="text-label-container">
               <span>Text</span>
             </div>
@@ -253,25 +251,23 @@
   </div>
 
   <script>
-    const $ = (sel, ctx = document) => ctx.querySelector(sel);
-    const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+    var $ = function (sel, ctx) { return (ctx || document).querySelector(sel); };
+    var $$ = function (sel, ctx) { return Array.from((ctx || document).querySelectorAll(sel)); };
 
-    // --- Modal Logic ---
-    const previewModal = $('#imagePreview');
-    const previewImg = $('#previewImg');
+    var previewModal = $('#imagePreview');
+    var previewImg = $('#previewImg');
     function openPreview(src) {
-      if(!src) return;
+      if (!src) return;
       previewImg.src = src;
       previewModal.classList.remove('hidden');
     }
     function closePreview() {
       previewModal.classList.add('hidden');
-      setTimeout(() => { if(previewModal.classList.contains('hidden')) previewImg.src = ''; }, 100);
+      setTimeout(function () { if (previewModal.classList.contains('hidden')) previewImg.src = ''; }, 100);
     }
     previewModal.addEventListener('click', closePreview);
-    // -------------------
 
-    const state = {
+    var state = {
       endpointId: 'google_pro',
       provider: 'google',
       model: 'gemini-3-pro-image-preview',
@@ -279,49 +275,29 @@
       maxImages: 32,
       maxBytes: 256 * 1024 * 1024,
       prefillEnabled: false,
-      ui: {
-        imageSizeMode: null,
-        savedSize: '1K',
-        savedQuality: 'low'
-      }
+      ui: { imageSizeMode: null, savedSize: '1K', savedQuality: 'low' }
     };
 
-    const ENDPOINTS = {
-      google_pro: {
-        id: 'google_pro',
-        provider: 'google',
-        model: 'gemini-3-pro-image-preview',
-      },
-      google_flash: {
-        id: 'google_flash',
-        provider: 'google',
-        model: 'gemini-3.1-flash-image-preview',
-      },
-      openrouter_pro: {
-        id: 'openrouter_pro',
-        provider: 'openrouter',
-        model: 'google/gemini-3-pro-image-preview',
-      },
-      openrouter_flash: {
-        id: 'openrouter_flash',
-        provider: 'openrouter',
-        model: 'google/gemini-3.1-flash-image-preview',
-      },
-      openai: {
-        id: 'openai',
-        provider: 'openai',
-        model: 'gpt-image-1.5',
-      }
+    var ENDPOINTS = {
+      google_pro: { id: 'google_pro', provider: 'google', model: 'gemini-3-pro-image-preview' },
+      google_flash: { id: 'google_flash', provider: 'google', model: 'gemini-3.1-flash-image-preview' },
+      openrouter_pro: { id: 'openrouter_pro', provider: 'openrouter', model: 'google/gemini-3-pro-image-preview' },
+      openrouter_flash: { id: 'openrouter_flash', provider: 'openrouter', model: 'google/gemini-3.1-flash-image-preview' },
+      openai: { id: 'openai', provider: 'openai', model: 'gpt-image-1.5' }
     };
+
+    var FLASH_ENDPOINTS = { google_flash: true, openrouter_flash: true };
+
+    function isFlashModel() { return !!FLASH_ENDPOINTS[state.endpointId]; }
 
     function setEndpoint(endpointId) {
-      const ep = ENDPOINTS[endpointId] || ENDPOINTS.google_pro;
+      var ep = ENDPOINTS[endpointId] || ENDPOINTS.google_pro;
       state.endpointId = ep.id;
       state.provider = ep.provider;
       state.model = ep.model;
     }
 
-    const els = {
+    var els = {
       endpoint: $('#endpoint'),
       apiKeyLabel: $('#apiKeyLabel'),
       apiKey: $('#apiKey'),
@@ -360,7 +336,7 @@
       spinner: $('#spinner'),
     };
 
-    const SYSTEM_MSG_KEY = 'image_gen_system_message';
+    var SYSTEM_MSG_KEY = 'image_gen_system_message';
 
     function setStatus(msg) { els.status.textContent = msg || ''; }
     function showSpinner(on) { els.spinner.classList.toggle('hidden', !on); }
@@ -371,7 +347,7 @@
         els.errorPre.textContent = typeof objOrText === 'string'
           ? objOrText
           : JSON.stringify(objOrText, null, 2);
-      } catch {
+      } catch (ex) {
         els.errorPre.textContent = String(objOrText);
       }
     }
@@ -382,7 +358,7 @@
     function showInfo(obj) {
       els.infoPanel.classList.remove('hidden');
       try { els.infoPre.textContent = JSON.stringify(obj, null, 2); }
-      catch { els.infoPre.textContent = String(obj); }
+      catch (ex) { els.infoPre.textContent = String(obj); }
     }
     function clearInfo() {
       els.infoPanel.classList.add('hidden');
@@ -394,16 +370,11 @@
     function saveSystemMsg() { localStorage.setItem(SYSTEM_MSG_KEY, els.systemMsg.value); }
     els.systemMsg.addEventListener('input', saveSystemMsg);
 
-    // --- Assistant Prefill ---
-    function isPrefillSupported() {
-      return state.provider !== 'openai';
-    }
+    function isPrefillSupported() { return state.provider !== 'openai'; }
 
     function updatePrefillUI() {
-      const supported = isPrefillSupported();
-
+      var supported = isPrefillSupported();
       if (!supported) {
-        // Force disable for OpenAI
         state.prefillEnabled = false;
         els.prefillContainer.classList.add('hidden');
         els.togglePrefill.textContent = 'Enable Assistant Prefill';
@@ -413,11 +384,9 @@
         els.prefillStatus.textContent = 'Not supported for this provider';
         return;
       }
-
       els.togglePrefill.disabled = false;
       els.togglePrefill.classList.remove('opacity-40', 'cursor-not-allowed');
       els.togglePrefill.classList.add('hover:bg-zinc-600');
-
       if (state.prefillEnabled) {
         els.togglePrefill.textContent = 'Disable Assistant Prefill';
         els.prefillStatus.textContent = 'Enabled';
@@ -429,7 +398,7 @@
       }
     }
 
-    els.togglePrefill.addEventListener('click', () => {
+    els.togglePrefill.addEventListener('click', function () {
       if (!isPrefillSupported()) return;
       state.prefillEnabled = !state.prefillEnabled;
       updatePrefillUI();
@@ -439,25 +408,15 @@
       if (!state.prefillEnabled || !isPrefillSupported()) return null;
       return els.assistantPrefill.value || '';
     }
-    // --- End Assistant Prefill ---
 
-    const PROVIDERS = {
+    var PROVIDERS = {
       google: {
         id: 'google',
         name: 'Google AI Studio',
         apiKeyStorage: 'gemini_api_key',
         apiKeyLabel: 'Google API Key',
         apiKeyPlaceholder: 'AIzaSy...',
-        buildRequest: buildGoogleRequest,
-        parseResponse: parseGoogleResponse,
-        url: (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        headers: (apiKey) => ({ 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }),
-        info: (data) => {
-          const info = {};
-          if (data?.promptFeedback) info.promptFeedback = data.promptFeedback;
-          if (data?.usageMetadata) info.usageMetadata = data.usageMetadata;
-          return info;
-        }
+        headers: function (apiKey) { return { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }; },
       },
       openrouter: {
         id: 'openrouter',
@@ -467,13 +426,13 @@
         apiKeyPlaceholder: 'sk-or-v1-...',
         buildRequest: buildOpenRouterRequest,
         parseResponse: parseOpenRouterResponse,
-        url: () => 'https://openrouter.ai/api/v1/chat/completions',
-        headers: (apiKey) => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }),
-        info: (data) => {
-          const info = {};
-          if (data?.id) info.id = data.id;
-          if (data?.model) info.model = data.model;
-          if (data?.usage) info.usage = data.usage;
+        url: function () { return 'https://openrouter.ai/api/v1/chat/completions'; },
+        headers: function (apiKey) { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey }; },
+        info: function (data) {
+          var info = {};
+          if (data && data.id) info.id = data.id;
+          if (data && data.model) info.model = data.model;
+          if (data && data.usage) info.usage = data.usage;
           return info;
         }
       },
@@ -485,29 +444,31 @@
         apiKeyPlaceholder: 'sk-...',
         buildRequest: buildOpenAIRequest,
         parseResponse: parseOpenAIResponse,
-        url: (mode) => (mode === 'edits')
-          ? 'https://api.openai.com/v1/images/edits'
-          : 'https://api.openai.com/v1/images/generations',
-        headers: (apiKey, isForm = false) => {
-          const h = { 'Authorization': `Bearer ${apiKey}` };
+        url: function (mode) {
+          return (mode === 'edits')
+            ? 'https://api.openai.com/v1/images/edits'
+            : 'https://api.openai.com/v1/images/generations';
+        },
+        headers: function (apiKey, isForm) {
+          var h = { 'Authorization': 'Bearer ' + apiKey };
           if (!isForm) h['Content-Type'] = 'application/json';
           return h;
         },
-        info: (data) => {
-          const info = {};
-          if (data?.created) info.created = data.created;
-          if (data?.background) info.background = data.background;
-          if (data?.output_format) info.output_format = data.output_format;
-          if (data?.quality) info.quality = data.quality;
-          if (data?.size) info.size = data.size;
-          if (data?.usage) info.usage = data.usage;
+        info: function (data) {
+          var info = {};
+          if (data && data.created) info.created = data.created;
+          if (data && data.background) info.background = data.background;
+          if (data && data.output_format) info.output_format = data.output_format;
+          if (data && data.quality) info.quality = data.quality;
+          if (data && data.size) info.size = data.size;
+          if (data && data.usage) info.usage = data.usage;
           return info;
         }
       }
     };
 
     function loadProvider() {
-      const savedEndpoint = localStorage.getItem('image_gen_endpoint') || 'google_pro';
+      var savedEndpoint = localStorage.getItem('image_gen_endpoint') || 'google_pro';
       setEndpoint(ENDPOINTS[savedEndpoint] ? savedEndpoint : 'google_pro');
       els.endpoint.value = state.endpointId;
       applyProviderUI();
@@ -515,25 +476,22 @@
     function saveProvider() { localStorage.setItem('image_gen_endpoint', state.endpointId); }
 
     function loadApiKeyForCurrentProvider() {
-      const storageKey = PROVIDERS[state.provider].apiKeyStorage;
-      return localStorage.getItem(storageKey) || '';
+      return localStorage.getItem(PROVIDERS[state.provider].apiKeyStorage) || '';
     }
     function saveApiKey() {
-      const storageKey = PROVIDERS[state.provider].apiKeyStorage;
-      localStorage.setItem(storageKey, els.apiKey.value.trim());
+      localStorage.setItem(PROVIDERS[state.provider].apiKeyStorage, els.apiKey.value.trim());
     }
-    function clearApiKey() {
-      const storageKey = PROVIDERS[state.provider].apiKeyStorage;
-      localStorage.removeItem(storageKey);
+    function clearApiKeyStorage() {
+      localStorage.removeItem(PROVIDERS[state.provider].apiKeyStorage);
       els.apiKey.value = '';
     }
 
     function setSelectOptions(selectEl, options) {
       selectEl.innerHTML = '';
-      for (const opt of options) {
-        const o = document.createElement('option');
-        o.value = opt.value;
-        o.textContent = opt.label;
+      for (var i = 0; i < options.length; i++) {
+        var o = document.createElement('option');
+        o.value = options[i].value;
+        o.textContent = options[i].label;
         selectEl.appendChild(o);
       }
     }
@@ -545,11 +503,8 @@
 
     function ensureImageSizeMode(mode) {
       if (state.ui.imageSizeMode === mode) return;
-
       if (state.ui.imageSizeMode) saveCurrentImageSizeSelection();
-
       state.ui.imageSizeMode = mode;
-
       if (mode === 'size') {
         els.imageSizeLabel.textContent = 'Image Size';
         els.imageSizeHelp.textContent = 'Select target resolution.';
@@ -558,8 +513,8 @@
           { value: '2K', label: '2K' },
           { value: '4K', label: '4K' },
         ]);
-        const valid = new Set(['1K', '2K', '4K']);
-        els.imageSize.value = valid.has(state.ui.savedSize) ? state.ui.savedSize : '1K';
+        var validS = { '1K': 1, '2K': 1, '4K': 1 };
+        els.imageSize.value = validS[state.ui.savedSize] ? state.ui.savedSize : '1K';
       } else {
         els.imageSizeLabel.textContent = 'Image Quality';
         els.imageSizeHelp.textContent = 'Select output quality.';
@@ -568,188 +523,163 @@
           { value: 'medium', label: 'medium' },
           { value: 'high', label: 'high' },
         ]);
-        const valid = new Set(['low', 'medium', 'high']);
-        els.imageSize.value = valid.has(state.ui.savedQuality) ? state.ui.savedQuality : 'low';
+        var validQ = { 'low': 1, 'medium': 1, 'high': 1 };
+        els.imageSize.value = validQ[state.ui.savedQuality] ? state.ui.savedQuality : 'low';
       }
     }
 
-    function applyProviderConstraints() {
-      const isOpenAI = state.provider === 'openai';
+    // Aspect ratios available only on OpenAI
+    var OPENAI_RATIOS = { '': 1, '1:1': 1, '3:2': 1, '2:3': 1 };
+    // Aspect ratios available only on flash models
+    var FLASH_ONLY_RATIOS = { '1:4': 1, '4:1': 1, '1:8': 1, '8:1': 1 };
+    // Base Gemini ratios (available on all Gemini endpoints)
+    var GEMINI_RATIOS = { '': 1, '1:1': 1, '2:3': 1, '3:2': 1, '3:4': 1, '4:3': 1, '4:5': 1, '5:4': 1, '9:16': 1, '16:9': 1, '21:9': 1 };
 
+    function applyProviderConstraints() {
+      var isOpenAI = state.provider === 'openai';
+      var flash = isFlashModel();
       els.systemMsgHelp.textContent = isOpenAI
         ? 'System message to instruct the model. (For OpenAI Images, this is prepended to the prompt.)'
         : 'System message to instruct the model.';
-
       ensureImageSizeMode(isOpenAI ? 'quality' : 'size');
 
-      const allowedAspect = new Set(['', '1:1', '3:2', '2:3']);
-      $$('option', els.aspectRatio).forEach(opt => {
-        opt.disabled = isOpenAI && !allowedAspect.has(opt.value);
+      $$('option', els.aspectRatio).forEach(function (opt) {
+        var val = opt.value;
+        var isFlashOnly = !!FLASH_ONLY_RATIOS[val];
+        var visible;
+        if (isOpenAI) {
+          visible = !!OPENAI_RATIOS[val];
+        } else if (isFlashOnly) {
+          visible = flash;
+        } else {
+          visible = true;
+        }
+        opt.disabled = !visible;
+        opt.hidden = !visible;
       });
-      if (isOpenAI && !allowedAspect.has(els.aspectRatio.value)) els.aspectRatio.value = '';
+
+      var currentOpt = els.aspectRatio.querySelector('option[value="' + els.aspectRatio.value + '"]');
+      if (currentOpt && (currentOpt.disabled || currentOpt.hidden)) {
+        els.aspectRatio.value = '';
+      }
 
       updatePrefillUI();
     }
 
     function applyProviderUI() {
-      const p = PROVIDERS[state.provider];
+      var p = PROVIDERS[state.provider];
       els.apiKeyLabel.textContent = p.apiKeyLabel;
       els.apiKey.placeholder = p.apiKeyPlaceholder;
       els.apiKey.value = loadApiKeyForCurrentProvider();
       els.systemMsg.value = loadSystemMsg();
-
       saveProvider();
       applyProviderConstraints();
-
-      setStatus(`Using ${p.name} (${state.model}).`);
+      setStatus('Using ' + p.name + ' (' + state.model + ').');
       clearError();
       clearInfo();
     }
 
     els.imageSize.addEventListener('change', saveCurrentImageSizeSelection);
 
-    // --- Paste & uploads ---
-    els.prompt.addEventListener('paste', async (e) => {
+    els.prompt.addEventListener('paste', async function (e) {
       try {
-        const items = e.clipboardData?.items || [];
-        const imageItems = [...items].filter(it => it.kind === 'file' && it.type.startsWith('image/'));
+        var items = e.clipboardData ? e.clipboardData.items : [];
+        var imageItems = [].filter.call(items, function (it) { return it.kind === 'file' && it.type.startsWith('image/'); });
         if (imageItems.length === 0) return;
         e.preventDefault();
-        const files = imageItems.map(it => it.getAsFile()).filter(Boolean);
+        var files = imageItems.map(function (it) { return it.getAsFile(); }).filter(Boolean);
         await handleFiles(files);
       } catch (err) {
-        showError(err?.message || String(err));
+        showError(err && err.message ? err.message : String(err));
       }
     });
 
     async function handleFiles(filesIterable) {
-      const files = Array.from(filesIterable || []);
+      var files = Array.from(filesIterable || []);
       if (!files.length) return;
-
-      for (const file of files) {
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
         if (!file) continue;
-        if (!file.type.startsWith('image/')) {
-          setStatus(`Skipped ${file.name || 'file'}: not an image.`);
-          continue;
-        }
-        if (state.images.length >= state.maxImages) {
-          setStatus(`Max ${state.maxImages} images reached.`);
-          break;
-        }
-        if (file.size > state.maxBytes) {
-          setStatus(`Skipped image (${(file.size / 1024 / 1024).toFixed(2)} MiB): exceeds 256 MiB limit.`);
-          continue;
-        }
-
-        const dataUrl = await readAsDataURL(file);
-
-        let width = 0;
-        let height = 0;
-        try {
-          const imgObj = await loadImageFromDataUrl(dataUrl);
-          width = imgObj.naturalWidth;
-          height = imgObj.naturalHeight;
-        } catch {}
-
-        const base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
-        const name = file.name || `upload-${Date.now()}`;
-        state.images.push({ mime: file.type || 'image/png', base64, name, size: file.size, dataUrl, width, height });
+        if (!file.type.startsWith('image/')) { setStatus('Skipped ' + (file.name || 'file') + ': not an image.'); continue; }
+        if (state.images.length >= state.maxImages) { setStatus('Max ' + state.maxImages + ' images reached.'); break; }
+        if (file.size > state.maxBytes) { setStatus('Skipped image (' + (file.size / 1024 / 1024).toFixed(2) + ' MiB): exceeds 256 MiB limit.'); continue; }
+        var dataUrl = await readAsDataURL(file);
+        var width = 0, height = 0;
+        try { var imgObj = await loadImageFromDataUrl(dataUrl); width = imgObj.naturalWidth; height = imgObj.naturalHeight; } catch (ex) {}
+        var base64 = (dataUrl.split(',')[1] || '').replace(/\s/g, '');
+        var name = file.name || ('upload-' + Date.now());
+        state.images.push({ mime: file.type || 'image/png', base64: base64, name: name, size: file.size, dataUrl: dataUrl, width: width, height: height });
       }
-
       renderThumbs();
     }
 
     function renderThumbs() {
       els.thumbs.innerHTML = '';
-      state.images.forEach((img, idx) => {
-        const node = els.thumbTpl.content.firstElementChild.cloneNode(true);
-        const imgEl = $('img', node);
+      state.images.forEach(function (img, idx) {
+        var node = els.thumbTpl.content.firstElementChild.cloneNode(true);
+        var imgEl = $('img', node);
         imgEl.src = img.dataUrl;
         imgEl.alt = img.name || 'Pasted image';
-
-        imgEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openPreview(img.dataUrl);
-        });
-
-        const dimText = (img.width && img.height) ? `${img.width}x${img.height}` : 'Unknown';
+        imgEl.addEventListener('click', function (e) { e.stopPropagation(); openPreview(img.dataUrl); });
+        var dimText = (img.width && img.height) ? (img.width + 'x' + img.height) : 'Unknown';
         $('[data-role="dims"]', node).textContent = dimText;
-        $('[data-role="info"]', node).textContent = `${img.mime.split('/')[1].toUpperCase()} - ${(img.size/1024).toFixed(0)} KiB`;
-
-        $('button', node).addEventListener('click', (e) => {
-          e.stopPropagation();
-          state.images.splice(idx, 1);
-          renderThumbs();
-        });
-
+        $('[data-role="info"]', node).textContent = img.mime.split('/')[1].toUpperCase() + ' - ' + (img.size / 1024).toFixed(0) + ' KiB';
+        $('button', node).addEventListener('click', function (e) { e.stopPropagation(); state.images.splice(idx, 1); renderThumbs(); });
         els.thumbs.appendChild(node);
       });
     }
 
-    // --- Requests ---
-    function buildGoogleRequest(prompt) {
-      const parts = [{ text: prompt }];
-      for (const img of state.images) parts.push({ inlineData: { mimeType: img.mime, data: img.base64 } });
-
-      const sysText = (els.systemMsg.value || '').trim();
-      const aspectRatio = (els.aspectRatio.value || '').trim();
-      const imageSize = els.imageSize.value;
-
-      const body = { contents: [{ role: 'user', parts }] };
-
-      // Assistant prefill
-      const prefill = getPrefillText();
-      if (prefill !== null) {
-        body.contents.push({ role: 'model', parts: [{ text: prefill }] });
+    // --- Google (streaming only) ---
+    function buildGoogleStreamRequest(prompt) {
+      var parts = [{ text: prompt }];
+      for (var i = 0; i < state.images.length; i++) {
+        parts.push({ inlineData: { mimeType: state.images[i].mime, data: state.images[i].base64 } });
       }
-
+      var sysText = (els.systemMsg.value || '').trim();
+      var aspectRatio = (els.aspectRatio.value || '').trim();
+      var imageSize = els.imageSize.value;
+      var body = { contents: [{ role: 'user', parts: parts }] };
+      var prefill = getPrefillText();
+      if (prefill !== null) body.contents.push({ role: 'model', parts: [{ text: prefill }] });
       if (sysText) body.system_instruction = { parts: [{ text: sysText }] };
-
-      const config = {};
+      var config = {};
       if (aspectRatio) config.aspectRatio = aspectRatio;
       config.imageSize = imageSize;
-
       body.generationConfig = { imageConfig: config, thinkingConfig: { includeThoughts: true, thinkingBudget: 65535 } };
-
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+        + encodeURIComponent(state.model) + ':streamGenerateContent?alt=sse';
       return {
-        url: PROVIDERS.google.url(state.model),
+        url: url,
         headers: PROVIDERS.google.headers(els.apiKey.value.trim()),
-        body: JSON.stringify(body),
-        isForm: false
+        body: JSON.stringify(body)
       };
     }
 
+    // --- OpenRouter / OpenAI ---
     function buildOpenRouterRequest(prompt) {
-      const content = [{ type: 'text', text: prompt }];
-      for (const img of state.images) content.push({ type: 'image_url', image_url: { url: img.dataUrl } });
-
-      const sysText = (els.systemMsg.value || '').trim();
-      const aspectRatio = (els.aspectRatio.value || '').trim();
-      const imageSize = els.imageSize.value;
-
-      const messages = [];
-      if (sysText) messages.push({ role: 'system', content: sysText });
-      messages.push({ role: 'user', content });
-
-      // Assistant prefill
-      const prefill = getPrefillText();
-      if (prefill !== null) {
-        messages.push({ role: 'assistant', content: prefill });
+      var content = [{ type: 'text', text: prompt }];
+      for (var i = 0; i < state.images.length; i++) {
+        content.push({ type: 'image_url', image_url: { url: state.images[i].dataUrl } });
       }
-
-      const payload = {
+      var sysText = (els.systemMsg.value || '').trim();
+      var aspectRatio = (els.aspectRatio.value || '').trim();
+      var imageSize = els.imageSize.value;
+      var messages = [];
+      if (sysText) messages.push({ role: 'system', content: sysText });
+      messages.push({ role: 'user', content: content });
+      var prefill = getPrefillText();
+      if (prefill !== null) messages.push({ role: 'assistant', content: prefill });
+      var payload = {
         model: state.model,
-        messages,
+        messages: messages,
         modalities: ['image', 'text'],
         reasoning: { exclude: true, max_tokens: 65535 },
         provider: { ignore: ['google-ai-studio'] }
       };
-
-      const imgConfig = {};
+      var imgConfig = {};
       if (aspectRatio) imgConfig.aspect_ratio = aspectRatio;
       imgConfig.image_size = imageSize;
       payload.image_config = imgConfig;
-
       return {
         url: PROVIDERS.openrouter.url(),
         headers: PROVIDERS.openrouter.headers(els.apiKey.value.trim()),
@@ -759,7 +689,7 @@
     }
 
     function openaiSizeFromAspectRatio(aspectRatio) {
-      const ar = (aspectRatio || '').trim();
+      var ar = (aspectRatio || '').trim();
       if (!ar) return 'auto';
       if (ar === '1:1') return '1024x1024';
       if (ar === '3:2') return '1536x1024';
@@ -768,27 +698,24 @@
     }
 
     async function normalizeImageForOpenAI(img) {
-      const blob = dataUrlToBlob(img.dataUrl);
-      const ok = /^image\/(png|webp|jpeg|jpg)$/i.test(blob.type);
-      if (ok) return { blob, filename: img.name || `image-${Date.now()}` };
-
-      const imageObj = await loadImageFromDataUrl(img.dataUrl);
-      const pngBlob = await imageToPngBlob(imageObj);
-      const baseName = (img.name || `image-${Date.now()}`).replace(/\.[a-z0-9]+$/i, '');
-      return { blob: pngBlob, filename: `${baseName}.png` };
+      var blob = dataUrlToBlob(img.dataUrl);
+      var ok = /^image\/(png|webp|jpeg|jpg)$/i.test(blob.type);
+      if (ok) return { blob: blob, filename: img.name || ('image-' + Date.now()) };
+      var imageObj = await loadImageFromDataUrl(img.dataUrl);
+      var pngBlob = await imageToPngBlob(imageObj);
+      var baseName = (img.name || ('image-' + Date.now())).replace(/\.[a-z0-9]+$/i, '');
+      return { blob: pngBlob, filename: baseName + '.png' };
     }
 
     async function buildOpenAIRequest(prompt) {
-      const apiKey = els.apiKey.value.trim();
-      const sysText = (els.systemMsg.value || '').trim();
-      const combinedPrompt = sysText ? `${sysText}\n\n${prompt}` : prompt;
-
-      const size = openaiSizeFromAspectRatio(els.aspectRatio.value);
-      const quality = (els.imageSize.value || 'low');
-
-      const hasImages = state.images.length > 0;
+      var apiKey = els.apiKey.value.trim();
+      var sysText = (els.systemMsg.value || '').trim();
+      var combinedPrompt = sysText ? (sysText + '\n\n' + prompt) : prompt;
+      var size = openaiSizeFromAspectRatio(els.aspectRatio.value);
+      var quality = els.imageSize.value || 'low';
+      var hasImages = state.images.length > 0;
       if (hasImages) {
-        const fd = new FormData();
+        var fd = new FormData();
         fd.append('model', state.model);
         fd.append('prompt', combinedPrompt);
         fd.append('size', size);
@@ -796,106 +723,437 @@
         fd.append('output_format', 'png');
         fd.append('background', 'auto');
         fd.append('n', '1');
-
-        for (const img of state.images) {
-          const { blob, filename } = await normalizeImageForOpenAI(img);
-          fd.append('image[]', blob, filename);
+        for (var i = 0; i < state.images.length; i++) {
+          var norm = await normalizeImageForOpenAI(state.images[i]);
+          fd.append('image[]', norm.blob, norm.filename);
         }
-
         return { url: PROVIDERS.openai.url('edits'), headers: PROVIDERS.openai.headers(apiKey, true), body: fd, isForm: true };
       }
-
-      const body = {
-        model: state.model,
-        prompt: combinedPrompt,
-        n: 1,
-        size,
-        quality,
-        output_format: 'png',
-        background: 'auto',
-        moderation: 'low'
-      };
-
+      var body = { model: state.model, prompt: combinedPrompt, n: 1, size: size, quality: quality, output_format: 'png', background: 'auto', moderation: 'low' };
       return { url: PROVIDERS.openai.url('generations'), headers: PROVIDERS.openai.headers(apiKey, false), body: JSON.stringify(body), isForm: false };
     }
 
-    // --- Generate ---
-    els.generateBtn.addEventListener('click', async () => {
+    // --- Response Parsing (OpenRouter, OpenAI only) ---
+    function parseOpenRouterResponse(data) {
+      var items = [];
+      var choices = Array.isArray(data && data.choices) ? data.choices : [];
+      for (var c = 0; c < choices.length; c++) {
+        var msg = choices[c].message || {};
+        if (typeof msg.content === 'string') {
+          var t = msg.content.trim();
+          if (t) items.push({ kind: 'text', text: t, isThought: false });
+        }
+        var images = Array.isArray(msg.images) ? msg.images : [];
+        for (var i = 0; i < images.length; i++) {
+          var url = (images[i].image_url && images[i].image_url.url) || images[i].url || '';
+          if (typeof url === 'string' && url.startsWith('data:image')) {
+            var parsed = parseDataUrl(url);
+            if (parsed.base64) items.push({ kind: 'image', mime: parsed.mime, base64: parsed.base64, isThought: false });
+          }
+        }
+      }
+      return { items: items };
+    }
+
+    function parseOpenAIResponse(data) {
+      var items = [];
+      var arr = Array.isArray(data && data.data) ? data.data : [];
+      for (var i = 0; i < arr.length; i++) {
+        var d = arr[i];
+        var b64 = d.b64_json || '';
+        var url = d.url || '';
+        if (typeof b64 === 'string' && b64.trim()) {
+          items.push({ kind: 'image', mime: 'image/png', base64: b64.trim(), isThought: false });
+        } else if (typeof url === 'string' && url.trim()) {
+          items.push({ kind: 'image', url: url.trim(), isThought: false });
+        }
+      }
+      return { items: items };
+    }
+
+    function parseDataUrl(dataUrl) {
+      var m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl || '');
+      return { mime: (m && m[1]) || 'image/png', base64: (m && m[2]) || '' };
+    }
+
+    // --- Modular Card Creation ---
+    function extFromMime(mime) {
+      mime = mime || '';
+      if (mime.indexOf('png') !== -1) return 'png';
+      if (mime.indexOf('jpeg') !== -1 || mime.indexOf('jpg') !== -1) return 'jpg';
+      if (mime.indexOf('webp') !== -1) return 'webp';
+      if (mime.indexOf('gif') !== -1) return 'gif';
+      if (mime.indexOf('bmp') !== -1) return 'bmp';
+      return 'img';
+    }
+    function mimeFromUrl(url) {
+      var u = String(url || '').toLowerCase();
+      if (u.indexOf('.png') !== -1) return 'image/png';
+      if (u.indexOf('.webp') !== -1) return 'image/webp';
+      if (u.indexOf('.jpg') !== -1 || u.indexOf('.jpeg') !== -1) return 'image/jpeg';
+      if (u.indexOf('.gif') !== -1) return 'image/gif';
+      return 'image/png';
+    }
+
+    function createResultImageCard(item) {
+      var node = els.resultImageTpl && els.resultImageTpl.content && els.resultImageTpl.content.firstElementChild
+        ? els.resultImageTpl.content.firstElementChild.cloneNode(true) : null;
+      if (!node) return null;
+      var isThought = !!item.isThought;
+      if (isThought) {
+        node.classList.remove('border-border');
+        node.classList.add('border-thought/50');
+        var badge = node.querySelector('[data-role="thought-badge"]');
+        if (badge) badge.classList.remove('hidden');
+      }
+      var imgEl = node.querySelector('img');
+      var src = '';
+      var mime = item.mime || 'image/png';
+      var sizeBytes = 0;
+      if (item.base64) {
+        mime = item.mime || 'image/png';
+        src = 'data:' + mime + ';base64,' + item.base64;
+        try {
+          var padding = item.base64.endsWith('==') ? 2 : (item.base64.endsWith('=') ? 1 : 0);
+          sizeBytes = (item.base64.length * (3 / 4)) - padding;
+        } catch (ex) {}
+      } else if (item.url) {
+        src = item.url;
+        mime = mimeFromUrl(item.url);
+      }
+      if (!src) return null;
+      if (imgEl) {
+        imgEl.src = src;
+        imgEl.alt = isThought ? 'Thought Process Image' : 'Generated image';
+        imgEl.addEventListener('click', function () { openPreview(src); });
+      }
+      var mimeEl = node.querySelector('[data-role="mime"]');
+      var sizeKb = sizeBytes ? (sizeBytes / 1024).toFixed(0) : '';
+      var ext = mime.split('/')[1] || 'IMG';
+      if (mimeEl) mimeEl.textContent = sizeKb ? (ext.toUpperCase() + ' - ' + sizeKb + ' KiB') : ext.toUpperCase();
+      var resBadge = node.querySelector('[data-role="res-badge"]');
+      if (resBadge && src) {
+        loadImageFromDataUrl(src).then(function (imgObj) {
+          var w = imgObj.naturalWidth, h = imgObj.naturalHeight;
+          if (w && h) resBadge.textContent = w + 'x' + h;
+        }).catch(function () {});
+      }
+      var a = node.querySelector('[data-role="download"]');
+      if (a) {
+        a.href = src;
+        a.download = (isThought ? 'thought' : 'api') + '-image-' + Date.now() + '.' + extFromMime(mime);
+      }
+      var copyBtn = node.querySelector('[data-role="copy"]');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async function () {
+          try {
+            if (src.indexOf('data:image') !== 0) { setStatus('Copy image only supports base64 (data:) images in this UI.'); return; }
+            var msg = await copyImageToClipboard(src, mime);
+            setStatus(msg);
+          } catch (ex) { setStatus('Failed to copy image to clipboard.'); }
+        });
+      }
+      return node;
+    }
+
+    function createResultTextCard(item) {
+      var isThought = !!item.isThought;
+      var node = els.resultTextTpl && els.resultTextTpl.content && els.resultTextTpl.content.firstElementChild
+        ? els.resultTextTpl.content.firstElementChild.cloneNode(true) : null;
+      if (!node) return null;
+      if (isThought) {
+        node.classList.remove('border-border');
+        node.classList.add('border-thought/50');
+        var header = node.querySelector('[data-role="thought-header"]');
+        if (header) header.classList.remove('hidden');
+        var labelContainer = node.querySelector('[data-role="text-label-container"]');
+        if (labelContainer) labelContainer.classList.add('hidden');
+      }
+      var pre = node.querySelector('[data-role="text"]');
+      if (pre) {
+        pre.textContent = item.text || '';
+        if (isThought) { pre.classList.add('text-zinc-300'); pre.classList.add('font-sans'); pre.classList.add('text-xs'); }
+      }
+      var copyBtn = node.querySelector('[data-role="copy-text"]');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async function () {
+          try {
+            var currentText = pre ? pre.textContent : (item.text || '');
+            await navigator.clipboard.writeText(currentText);
+            setStatus('Copied text to clipboard.');
+          } catch (ex) { setStatus('Failed to copy text.'); }
+        });
+      }
+      return node;
+    }
+
+    function updateResultTextContent(node, text) {
+      if (!node) return;
+      var pre = node.querySelector('[data-role="text"]');
+      if (pre) pre.textContent = text;
+    }
+
+    // --- SSE Parser ---
+    async function* parseSSE(response) {
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (var i = 0; i < lines.length; i++) {
+          var trimmed = lines[i].trim();
+          if (!trimmed) continue;
+          if (trimmed.indexOf('data: ') === 0) {
+            var jsonStr = trimmed.slice(6);
+            if (jsonStr.trim()) {
+              try { yield JSON.parse(jsonStr); }
+              catch (e) {}
+            }
+          }
+        }
+      }
+      if (buffer.trim()) {
+        var remaining = buffer.trim();
+        if (remaining.indexOf('data: ') === 0) {
+          var js = remaining.slice(6);
+          if (js.trim()) {
+            try { yield JSON.parse(js); }
+            catch (e) {}
+          }
+        }
+      }
+    }
+
+    // --- Rendering (non-streaming) ---
+    function renderResults(items) {
+      els.results.innerHTML = '';
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.kind === 'image') {
+          var card = createResultImageCard(item);
+          if (card) els.results.appendChild(card);
+        }
+        if (item.kind === 'text') {
+          var txt = (item.text || '').trim();
+          if (!txt || txt === '`') continue;
+          var tcard = createResultTextCard(item);
+          if (tcard) els.results.appendChild(tcard);
+        }
+      }
+      if (!els.results.children.length) {
+        var div = document.createElement('div');
+        div.className = 'text-sm text-zinc-400';
+        div.textContent = 'No results to display.';
+        els.results.appendChild(div);
+      }
+    }
+
+    function buildStatusText(items) {
+      var counts = {};
+      for (var i = 0; i < items.length; i++) {
+        var type = items[i].isThought ? 'thought' : items[i].kind;
+        counts[type] = (counts[type] || 0) + 1;
+      }
+      var parts = [];
+      if (counts.image) parts.push(counts.image + ' image(s)');
+      if (counts.text) parts.push(counts.text + ' text(s)');
+      if (counts.thought) parts.push(counts.thought + ' thought(s)');
+      return 'Generated: ' + (parts.join(', ') || 'nothing');
+    }
+
+    // --- Google Streaming ---
+    async function generateGoogleStream(prompt) {
+      var req = buildGoogleStreamRequest(prompt);
+      var response = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body });
+
+      var contentType = response.headers.get('content-type') || '';
+      var isSSE = contentType.indexOf('text/event-stream') !== -1;
+
+      if (!response.ok || !isSSE) {
+        var raw = await response.text();
+        var errData = null;
+        try { errData = JSON.parse(raw); } catch (ex) {}
+        showError(errData || raw);
+        setStatus('Request failed.');
+        return;
+      }
+
+      if (!response.body) {
+        showError('Response body is empty.');
+        setStatus('Request failed.');
+        return;
+      }
+
+      els.results.innerHTML = '';
+
+      var currentTextNode = null;
+      var currentTextContent = '';
+      var currentIsThought = null;
+      var lastUsageMetadata = null;
+      var lastFinishReason = null;
+      var lastFinishMessage = null;
+      var lastPromptFeedback = null;
+      var modelVersion = null;
+      var responseId = null;
+      var allItems = [];
+
+      function finalizeCurrentText() {
+        if (currentTextNode) {
+          var trimmed = currentTextContent.trim();
+          if (!trimmed || trimmed === '`') {
+            currentTextNode.remove();
+          } else {
+            allItems.push({ kind: 'text', text: currentTextContent, isThought: !!currentIsThought });
+          }
+        }
+        currentTextNode = null;
+        currentTextContent = '';
+        currentIsThought = null;
+      }
+
+      for await (var data of parseSSE(response)) {
+        if (data.usageMetadata) lastUsageMetadata = data.usageMetadata;
+        if (data.modelVersion) modelVersion = data.modelVersion;
+        if (data.responseId) responseId = data.responseId;
+        if (data.promptFeedback) lastPromptFeedback = data.promptFeedback;
+
+        var candidates = Array.isArray(data.candidates) ? data.candidates : [];
+
+        for (var c = 0; c < candidates.length; c++) {
+          var cand = candidates[c];
+          if (cand.finishReason) lastFinishReason = cand.finishReason;
+          if (cand.finishMessage) lastFinishMessage = cand.finishMessage;
+
+          var parts = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts : [];
+
+          for (var p = 0; p < parts.length; p++) {
+            var part = parts[p];
+            var isThought = !!part.thought;
+
+            if (part.inlineData && part.inlineData.data && (part.inlineData.mimeType || '').indexOf('image/') === 0) {
+              finalizeCurrentText();
+              var imgItem = {
+                kind: 'image',
+                mime: part.inlineData.mimeType,
+                base64: part.inlineData.data,
+                isThought: isThought
+              };
+              allItems.push(imgItem);
+              var imgCard = createResultImageCard(imgItem);
+              if (imgCard) els.results.appendChild(imgCard);
+            }
+
+            if (typeof part.text === 'string') {
+              var shouldContinue = (currentTextNode !== null && currentIsThought === isThought);
+              if (shouldContinue) {
+                currentTextContent += part.text;
+                updateResultTextContent(currentTextNode, currentTextContent);
+              } else {
+                finalizeCurrentText();
+                currentIsThought = isThought;
+                currentTextContent = part.text;
+                currentTextNode = createResultTextCard({ kind: 'text', text: currentTextContent, isThought: isThought });
+                if (currentTextNode) els.results.appendChild(currentTextNode);
+              }
+            }
+          }
+        }
+      }
+
+      finalizeCurrentText();
+
+      var isStop = !lastFinishReason || lastFinishReason === 'STOP';
+
+      if (!isStop) {
+        var meta = {};
+        if (lastPromptFeedback) meta.promptFeedback = lastPromptFeedback;
+        if (lastFinishReason) meta.finishReason = lastFinishReason;
+        if (lastFinishMessage) meta.finishMessage = lastFinishMessage;
+        if (lastUsageMetadata) meta.usageMetadata = lastUsageMetadata;
+        if (modelVersion) meta.modelVersion = modelVersion;
+        if (responseId) meta.responseId = responseId;
+        showError(meta);
+        if (allItems.length === 0) {
+          setStatus('No output generated.');
+        } else {
+          setStatus(buildStatusText(allItems));
+        }
+      } else {
+        var info = {};
+        if (lastUsageMetadata) info.usageMetadata = lastUsageMetadata;
+        if (modelVersion) info.modelVersion = modelVersion;
+        if (responseId) info.responseId = responseId;
+        if (Object.keys(info).length) showInfo(info);
+        if (allItems.length === 0) {
+          setStatus('No output parts returned.');
+        } else {
+          setStatus(buildStatusText(allItems));
+        }
+      }
+    }
+
+    // --- Non-streaming (OpenRouter, OpenAI) ---
+    async function generateNonStream(prompt) {
+      var provider = state.provider;
+      var p = PROVIDERS[provider];
+      var req = await p.buildRequest(prompt);
+      var res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body });
+      var raw = await res.text();
+      var data = null;
+      try { data = JSON.parse(raw); } catch (ex) {}
+      if (!res.ok) {
+        showError(data || raw);
+        setStatus('Request failed.');
+        return;
+      }
+      if (provider === 'openrouter') {
+        var choices = Array.isArray(data && data.choices) ? data.choices : [];
+        var reasons = choices.map(function (ch) { return String((ch && ch.native_finish_reason) || '').toLowerCase(); }).filter(Boolean);
+        if (reasons.length && reasons.some(function (r) { return r !== 'stop'; })) {
+          showError(data);
+          setStatus('OpenRouter did not finish with "stop".');
+          return;
+        }
+      }
+      var structured = p.parseResponse(data);
+      if (structured.items.length === 0) {
+        els.results.innerHTML = '<div class="text-sm text-zinc-400">No image or text parts returned.</div>';
+        var infoObj = p.info(data);
+        if (Object.keys(infoObj).length) showInfo(infoObj);
+        setStatus('No output parts returned.');
+        return;
+      }
+      renderResults(structured.items);
+      var infoData = p.info(data);
+      if (Object.keys(infoData).length) showInfo(infoData);
+      setStatus(buildStatusText(structured.items));
+    }
+
+    // --- Generate Handler ---
+    els.generateBtn.addEventListener('click', async function () {
       els.results.innerHTML = '';
       clearError();
       clearInfo();
       setStatus('');
       showSpinner(true);
       els.generateBtn.disabled = true;
-
       try {
-        const apiKey = els.apiKey.value.trim();
+        var apiKey = els.apiKey.value.trim();
         if (!apiKey) throw new Error('Please enter your API key for the selected endpoint.');
         saveApiKey();
-
-        const prompt = els.prompt.value.trim();
+        var prompt = els.prompt.value.trim();
         if (!prompt) throw new Error('Please enter a prompt.');
-
-        const provider = state.provider;
-        const p = PROVIDERS[provider];
-
-        const req = await p.buildRequest(prompt);
-        const res = await fetch(req.url, { method: 'POST', headers: req.headers, body: req.body });
-
-        const raw = await res.text();
-        let data;
-        try { data = JSON.parse(raw); } catch { data = null; }
-
-        if (!res.ok) {
-          showError(data || raw);
-          setStatus('Request failed.');
-          return;
+        if (state.provider === 'google') {
+          await generateGoogleStream(prompt);
+        } else {
+          await generateNonStream(prompt);
         }
-
-        if (provider === 'openrouter') {
-          const choices = Array.isArray(data?.choices) ? data.choices : [];
-          const reasons = choices.map(ch => String(ch?.native_finish_reason || '').toLowerCase()).filter(Boolean);
-          if (reasons.length && reasons.some(r => r !== 'stop')) {
-            showError(data);
-            setStatus('OpenRouter did not finish with "stop".');
-            return;
-          }
-        }
-
-        const structured = p.parseResponse(data);
-
-        if (structured.items.length === 0) {
-          if (provider === 'google') {
-            showError(data);
-            setStatus('No output generated (likely blocked).');
-            return;
-          } else {
-            els.results.innerHTML = '<div class="text-sm text-zinc-400">No image or text parts returned.</div>';
-            const info = p.info(data);
-            if (Object.keys(info).length) showInfo(info);
-            setStatus('No output parts returned.');
-            return;
-          }
-        }
-
-        await renderResults(structured.items);
-
-        const info = p.info(data);
-        if (Object.keys(info).length) showInfo(info);
-
-        const counts = structured.items.reduce((acc, it) => {
-          const type = it.isThought ? 'thought' : it.kind;
-          acc[type] = (acc[type] || 0) + 1;
-          return acc;
-        }, {});
-
-        const parts = [];
-        if (counts.image) parts.push(`${counts.image} image(s)`);
-        if (counts.text) parts.push(`${counts.text} text(s)`);
-        if (counts.thought) parts.push(`${counts.thought} thought(s)`);
-        setStatus('Generated: ' + (parts.join(', ') || 'nothing'));
       } catch (err) {
-        showError(err?.message || String(err));
+        showError((err && err.message) ? err.message : String(err));
         setStatus('Error occurred.');
       } finally {
         showSpinner(false);
@@ -903,328 +1161,112 @@
       }
     });
 
-    // --- Response parsing ---
-    function parseGoogleResponse(data) {
-      const items = [];
-      const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
-      for (const cand of candidates) {
-        const parts = Array.isArray(cand?.content?.parts) ? cand.content.parts : [];
-        for (const p of parts) {
-          const isThought = !!p.thought;
-          if (typeof p?.text === 'string') {
-            const t = p.text.trim();
-            if (t && t !== '`') items.push({ kind: 'text', text: t, isThought });
-          }
-          if (p?.inlineData?.data && (p?.inlineData?.mimeType || '').startsWith('image/')) {
-            items.push({ kind: 'image', mime: p.inlineData.mimeType, base64: p.inlineData.data, isThought });
-          }
-        }
-      }
-      return { items };
-    }
-
-    function parseOpenRouterResponse(data) {
-      const items = [];
-      const choices = Array.isArray(data?.choices) ? data.choices : [];
-      for (const ch of choices) {
-        const msg = ch?.message || {};
-        if (typeof msg.content === 'string') {
-          const t = msg.content.trim();
-          if (t) items.push({ kind: 'text', text: t, isThought: false });
-        }
-        const images = Array.isArray(msg?.images) ? msg.images : [];
-        for (const im of images) {
-          const url = im?.image_url?.url || im?.url || '';
-          if (typeof url === 'string' && url.startsWith('data:image')) {
-            const parsed = parseDataUrl(url);
-            if (parsed.base64) items.push({ kind: 'image', mime: parsed.mime, base64: parsed.base64, isThought: false });
-          }
-        }
-      }
-      return { items };
-    }
-
-    function parseOpenAIResponse(data) {
-      const items = [];
-      const arr = Array.isArray(data?.data) ? data.data : [];
-      for (const d of arr) {
-        const b64 = d?.b64_json || '';
-        const url = d?.url || '';
-        if (typeof b64 === 'string' && b64.trim()) {
-          items.push({ kind: 'image', mime: 'image/png', base64: b64.trim(), isThought: false });
-        } else if (typeof url === 'string' && url.trim()) {
-          items.push({ kind: 'image', url: url.trim(), isThought: false });
-        }
-      }
-      return { items };
-    }
-
-    function parseDataUrl(dataUrl = '') {
-      const m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
-      return { mime: m?.[1] || 'image/png', base64: m?.[2] || '' };
-    }
-
-    // --- Rendering ---
-    function extFromMime(mime = '') {
-      if (mime.includes('png')) return 'png';
-      if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
-      if (mime.includes('webp')) return 'webp';
-      if (mime.includes('gif')) return 'gif';
-      if (mime.includes('bmp')) return 'bmp';
-      return 'img';
-    }
-    function mimeFromUrl(url = '') {
-      const u = String(url || '').toLowerCase();
-      if (u.includes('.png')) return 'image/png';
-      if (u.includes('.webp')) return 'image/webp';
-      if (u.includes('.jpg') || u.includes('.jpeg')) return 'image/jpeg';
-      if (u.includes('.gif')) return 'image/gif';
-      return 'image/png';
-    }
-
-    async function renderResults(items) {
-      els.results.innerHTML = '';
-
-      for (const it of items) {
-        const isThought = !!it.isThought;
-
-        if (it.kind === 'image') {
-          try {
-            const node = els.resultImageTpl?.content?.firstElementChild?.cloneNode(true);
-            if (!node) throw new Error('Image template not found in DOM.');
-
-            if (isThought) {
-              node.classList.remove('border-border');
-              node.classList.add('border-thought/50');
-              const badge = node.querySelector('[data-role="thought-badge"]');
-              if (badge) badge.classList.remove('hidden');
-            }
-
-            const imgEl = node.querySelector('img');
-
-            let src = '';
-            let mime = it.mime || 'image/png';
-            let sizeBytes = 0;
-            let width = 0;
-            let height = 0;
-
-            if (it.base64) {
-              mime = it.mime || 'image/png';
-              src = `data:${mime};base64,${it.base64}`;
-              try {
-                const padding = (it.base64.endsWith("==")) ? 2 : (it.base64.endsWith("=") ? 1 : 0);
-                sizeBytes = (it.base64.length * (3/4)) - padding;
-                const imgObj = await loadImageFromDataUrl(src);
-                width = imgObj.naturalWidth;
-                height = imgObj.naturalHeight;
-              } catch {}
-            } else if (it.url) {
-              src = it.url;
-              mime = mimeFromUrl(it.url);
-            } else {
-              continue;
-            }
-
-            if (imgEl) {
-              imgEl.src = src;
-              imgEl.alt = isThought ? 'Thought Process Image' : 'Generated image';
-              imgEl.addEventListener('click', () => openPreview(src));
-            }
-
-            const mimeEl = node.querySelector('[data-role="mime"]');
-            const sizeKb = sizeBytes ? (sizeBytes / 1024).toFixed(0) : '';
-            if (mimeEl) mimeEl.textContent = sizeKb ? `${mime.split('/')[1].toUpperCase()} - ${sizeKb} KiB` : `${mime.split('/')[1].toUpperCase()}`;
-
-            const resBadge = node.querySelector('[data-role="res-badge"]');
-            if (resBadge && width && height) resBadge.textContent = `${width}x${height}`;
-            else if (resBadge) resBadge.textContent = '';
-
-            const a = node.querySelector('[data-role="download"]');
-            a.href = src;
-            a.download = `${isThought ? 'thought' : 'api'}-image-${Date.now()}.${extFromMime(mime)}`;
-
-            const copyBtn = node.querySelector('[data-role="copy"]');
-            copyBtn.addEventListener('click', async () => {
-              try {
-                if (!src.startsWith('data:image')) {
-                  setStatus('Copy image only supports base64 (data:) images in this UI.');
-                  return;
-                }
-                const msg = await copyImageToClipboard(src, mime);
-                setStatus(msg);
-              } catch {
-                setStatus('Failed to copy image to clipboard.');
-              }
-            });
-
-            els.results.appendChild(node);
-          } catch (e) {
-            showError(e?.message || String(e));
-          }
-        }
-
-        if (it.kind === 'text') {
-          const txt = (it.text || '').trim();
-          if (!txt || txt === '`') continue;
-
-          const node = els.resultTextTpl?.content?.firstElementChild?.cloneNode(true);
-          if (!node) { showError('Text template not found in DOM.'); continue; }
-
-          if (isThought) {
-            node.classList.remove('border-border');
-            node.classList.add('border-thought/50');
-
-            const header = node.querySelector('[data-role="thought-header"]');
-            if (header) header.classList.remove('hidden');
-
-            const labelContainer = node.querySelector('[data-role="text-label-container"]');
-            if (labelContainer) labelContainer.classList.add('hidden');
-          }
-
-          const pre = node.querySelector('[data-role="text"]');
-          if (pre) {
-            pre.textContent = txt;
-            if (isThought) pre.classList.add('text-zinc-300', 'font-sans', 'text-xs');
-          }
-
-          const copyBtn = node.querySelector('[data-role="copy-text"]');
-          if (copyBtn) {
-            copyBtn.addEventListener('click', async () => {
-              try {
-                await navigator.clipboard.writeText(txt);
-                setStatus('Copied text to clipboard.');
-              } catch {
-                setStatus('Failed to copy text.');
-              }
-            });
-          }
-
-          els.results.appendChild(node);
-        }
-      }
-
-      if (items.length === 0) {
-        const div = document.createElement('div');
-        div.className = 'text-sm text-zinc-400';
-        div.textContent = 'No results to display.';
-        els.results.appendChild(div);
-      }
-    }
-
     // --- Utilities ---
     function readAsDataURL(file) {
-      return new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result);
-        fr.onerror = () => reject(fr.error || new Error('Failed to read file.'));
+      return new Promise(function (resolve, reject) {
+        var fr = new FileReader();
+        fr.onload = function () { resolve(fr.result); };
+        fr.onerror = function () { reject(fr.error || new Error('Failed to read file.')); };
         fr.readAsDataURL(file);
       });
     }
 
     function dataUrlToBlob(dataUrl) {
-      const m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
+      var m = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl);
       if (!m) throw new Error('Invalid data URL.');
-      const mime = m[1];
-      const b64 = m[2];
-      const binStr = atob(b64);
-      const len = binStr.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+      var mime = m[1];
+      var b64 = m[2];
+      var binStr = atob(b64);
+      var len = binStr.length;
+      var bytes = new Uint8Array(len);
+      for (var i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
       return new Blob([bytes], { type: mime });
     }
 
     function loadImageFromDataUrl(dataUrl) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image.'));
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = function () { reject(new Error('Failed to load image.')); };
         img.src = dataUrl;
       });
     }
 
     function imageToPngBlob(img) {
-      return new Promise((resolve, reject) => {
+      return new Promise(function (resolve, reject) {
         try {
-          const canvas = document.createElement('canvas');
-          const w = img.naturalWidth || img.width;
-          const h = img.naturalHeight || img.height;
+          var canvas = document.createElement('canvas');
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
           if (!w || !h) return reject(new Error('Invalid image dimensions.'));
           canvas.width = w;
           canvas.height = h;
-          const ctx = canvas.getContext('2d');
+          var ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
-          canvas.toBlob((blob) => {
+          canvas.toBlob(function (blob) {
             if (blob) resolve(blob);
             else reject(new Error('Failed to encode PNG for clipboard.'));
           }, 'image/png');
-        } catch (e) {
-          reject(e);
-        }
+        } catch (e) { reject(e); }
       });
     }
 
-    async function copyImageToClipboard(dataUrl, mime = 'image/png') {
+    async function copyImageToClipboard(dataUrl, mime) {
       if (!navigator.clipboard || typeof window.ClipboardItem === 'undefined') {
         throw new Error('Image clipboard not supported in this browser.');
       }
-
-      const wantPng = !/image\/png/i.test(mime);
-      let pngBlob;
-
-      if (!wantPng && /image\/png/i.test(mime)) {
+      var pngBlob;
+      if (/image\/png/i.test(mime || '')) {
         pngBlob = dataUrlToBlob(dataUrl);
         if (!/image\/png/i.test(pngBlob.type)) {
-          const img = await loadImageFromDataUrl(dataUrl);
+          var img = await loadImageFromDataUrl(dataUrl);
           pngBlob = await imageToPngBlob(img);
         }
       } else {
-        const img = await loadImageFromDataUrl(dataUrl);
-        pngBlob = await imageToPngBlob(img);
+        var img2 = await loadImageFromDataUrl(dataUrl);
+        pngBlob = await imageToPngBlob(img2);
       }
-
-      const item = new ClipboardItem({ 'image/png': pngBlob });
+      var item = new ClipboardItem({ 'image/png': pngBlob });
       await navigator.clipboard.write([item]);
       return 'Copied image to clipboard (PNG).';
     }
 
-    // --- Buttons / inputs ---
-    els.uploadImages.addEventListener('click', () => els.imageInput.click());
+    els.uploadImages.addEventListener('click', function () { els.imageInput.click(); });
 
-    els.imageInput.addEventListener('change', async (e) => {
+    els.imageInput.addEventListener('change', async function (e) {
       try { await handleFiles(e.target.files); }
-      catch (err) { showError(err?.message || String(err)); }
+      catch (err) { showError((err && err.message) ? err.message : String(err)); }
       finally { e.target.value = ''; }
     });
 
-    els.clearImages.addEventListener('click', () => {
+    els.clearImages.addEventListener('click', function () {
       state.images = [];
       renderThumbs();
       setStatus('Images cleared.');
     });
 
-    els.clearResults.addEventListener('click', () => {
+    els.clearResults.addEventListener('click', function () {
       els.results.innerHTML = '';
       setStatus('Results cleared.');
     });
 
-    els.endpoint.addEventListener('change', () => {
+    els.endpoint.addEventListener('change', function () {
       setEndpoint(els.endpoint.value);
       applyProviderUI();
     });
 
-    els.toggleKey.addEventListener('click', () => {
+    els.toggleKey.addEventListener('click', function () {
       els.apiKey.type = els.apiKey.type === 'password' ? 'text' : 'password';
       els.toggleKey.textContent = els.apiKey.type === 'password' ? 'Show' : 'Hide';
     });
 
-    els.clearKey.addEventListener('click', () => {
-      clearApiKey();
+    els.clearKey.addEventListener('click', function () {
+      clearApiKeyStorage();
       setStatus('API key cleared for current provider.');
     });
 
     els.apiKey.addEventListener('input', saveApiKey);
 
-    // Start
     loadProvider();
   </script>
 </body>
