@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>Noise</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #09090b; font-family: Arial, sans-serif; }
+  canvas { display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+
+<canvas id="c" class="fixed inset-0 w-dvw h-dvh"></canvas>
+
+<div class="fixed top-3 left-3 z-10 bg-zinc-900/60 backdrop-blur border border-zinc-800/70 rounded-lg shadow-xl p-3 text-sm select-none">
+  <div class="font-semibold text-zinc-100 mb-2">Noise</div>
+  <div class="space-y-2">
+    <div class="flex flex-col gap-1">
+      <label class="text-xs text-zinc-400">Pattern</label>
+      <select id="pattern" class="bg-zinc-800/80 border border-zinc-700 rounded px-2 py-1 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-500">
+        <option value="0">Random</option>
+        <option value="1">Horizontal bars</option>
+        <option value="2">Vertical bars</option>
+        <option value="3">Alternating bars (H/V)</option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-xs text-zinc-400">Chroma</label>
+      <select id="chroma" class="bg-zinc-800/80 border border-zinc-700 rounded px-2 py-1 text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-500">
+        <option value="0">Full color</option>
+        <option value="1">Monochrome</option>
+      </select>
+    </div>
+    <div class="text-xs text-zinc-400 pt-1 border-t border-zinc-800/70">
+      FPS: <span id="fps" class="text-zinc-200">-</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const patternSel = document.getElementById('pattern');
+  const chromaSel = document.getElementById('chroma');
+  const fpsEl = document.getElementById('fps');
+
+  const gl = canvas.getContext('webgl2', {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    premultipliedAlpha: false,
+    preserveDrawingBuffer: false,
+    powerPreference: 'high-performance',
+    desynchronized: true
+  });
+
+  if (!gl) {
+    document.body.innerHTML = '<div class="p-6 text-red-400">This browser is not supported.</div>';
+    return;
+  }
+
+  const VS = `#version 300 es
+  void main() {
+    vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+  }`;
+
+  const FS = `#version 300 es
+  precision highp float;
+  precision highp int;
+  out vec4 outColor;
+  uniform uint uFrame;
+  uniform int  uPattern; // 0=random, 1=hbars, 2=vbars, 3=alternating
+  uniform int  uChroma;  // 0=color,  1=mono
+
+  uint hash32(uint x) {
+    x ^= x >> 16u;
+    x *= 0x7feb352du;
+    x ^= x >> 15u;
+    x *= 0x846ca68bu;
+    x ^= x >> 16u;
+    return x;
+  }
+  uint hash3(uvec3 v) {
+    return hash32(v.x ^ hash32(v.y ^ hash32(v.z)));
+  }
+  float toUnit(uint h) {
+    return float(h) * (1.0 / 4294967296.0);
+  }
+
+  void main() {
+    uvec2 p = uvec2(gl_FragCoord.xy);
+
+    int pat = uPattern;
+    if (pat == 3) {
+      pat = ((uFrame & 1u) == 0u) ? 1 : 2;
+    }
+
+    uvec2 q;
+    if (pat == 1) {
+      q = uvec2(0u, p.y);
+    } else if (pat == 2) {
+      q = uvec2(p.x, 0u);
+    } else {
+      q = p;
+    }
+
+    vec3 c;
+    if (uChroma == 1) {
+      float v = toUnit(hash3(uvec3(q, uFrame)));
+      c = vec3(v);
+    } else {
+      uint s = uFrame * 3u;
+      c.r = toUnit(hash3(uvec3(q, s + 0u)));
+      c.g = toUnit(hash3(uvec3(q, s + 1u)));
+      c.b = toUnit(hash3(uvec3(q, s + 2u)));
+    }
+
+    outColor = vec4(c, 1.0);
+  }`;
+
+  function compile(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      const info = gl.getShaderInfoLog(sh);
+      console.error(info, src);
+      throw new Error('Shader compile error: ' + info);
+    }
+    return sh;
+  }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    throw new Error('Program link error: ' + gl.getProgramInfoLog(prog));
+  }
+  gl.useProgram(prog);
+
+  const uFrameLoc   = gl.getUniformLocation(prog, 'uFrame');
+  const uPatternLoc = gl.getUniformLocation(prog, 'uPattern');
+  const uChromaLoc  = gl.getUniformLocation(prog, 'uChroma');
+
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.BLEND);
+  gl.disable(gl.CULL_FACE);
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+    const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+    canvas.width = w;
+    canvas.height = h;
+    gl.viewport(0, 0, w, h);
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+  resize();
+
+  let pattern = parseInt(patternSel.value, 10);
+  let chroma  = parseInt(chromaSel.value, 10);
+  patternSel.addEventListener('change', () => { pattern = parseInt(patternSel.value, 10); });
+  chromaSel .addEventListener('change', () => { chroma  = parseInt(chromaSel.value, 10); });
+
+  let frameCounter = 0;
+  let framesSinceFpsUpdate = 0;
+  let lastFpsT = performance.now();
+
+  function render() {
+    gl.uniform1ui(uFrameLoc, frameCounter >>> 0);
+    gl.uniform1i(uPatternLoc, pattern);
+    gl.uniform1i(uChromaLoc, chroma);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    frameCounter++;
+    framesSinceFpsUpdate++;
+    const now = performance.now();
+    if (now - lastFpsT >= 500) {
+      const fps = (framesSinceFpsUpdate * 1000) / (now - lastFpsT);
+      fpsEl.textContent = fps.toFixed(1);
+      framesSinceFpsUpdate = 0;
+      lastFpsT = now;
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  requestAnimationFrame(render);
+})();
+</script>
+
+</body>
+</html>
