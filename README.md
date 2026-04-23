@@ -8,4 +8,5 @@ My slop vibe coded websites.
 [Sora Video Generator](https://lagpixellol.github.io/slop-sites/sora) \
 [Perlin WebGPU](https://lagpixellol.github.io/slop-sites/perlin) \
 [Gradient Generator](https://lagpixellol.github.io/slop-sites/gradient) \
-[Noise](https://lagpixellol.github.io/slop-sites/noise)
+[Noise](https://lagpixellol.github.io/slop-sites/noise) \
+[Terminal Image Viewer](https://lagpixellol.github.io/slop-sites/tiv)
