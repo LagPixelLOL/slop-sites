@@ -72,6 +72,7 @@
             <option value="openrouter_pro">OpenRouter - model: google/gemini-3-pro-image-preview</option>
             <option value="openrouter_flash">OpenRouter - model: google/gemini-3.1-flash-image-preview</option>
             <option value="openai">OpenAI - model: gpt-image-2</option>
+            <option value="xai">xAI - model: grok-imagine-image-quality</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -154,6 +155,12 @@
             <option value="4:1" data-flash-only="true">4:1 - Narrow Wide</option>
             <option value="1:8" data-flash-only="true">1:8 - Ultra Tall</option>
             <option value="8:1" data-flash-only="true">8:1 - Ultra Wide</option>
+            <option value="1:2" data-xai-only="true">1:2 - Tall</option>
+            <option value="2:1" data-xai-only="true">2:1 - Wide</option>
+            <option value="9:19.5" data-xai-only="true">9:19.5 - Phone Tall</option>
+            <option value="19.5:9" data-xai-only="true">19.5:9 - Phone Wide</option>
+            <option value="9:20" data-xai-only="true">9:20 - Extra Phone Tall</option>
+            <option value="20:9" data-xai-only="true">20:9 - Extra Phone Wide</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -354,6 +361,11 @@
         id: 'openai',
         provider: 'openai',
         model: 'gpt-image-2'
+      },
+      xai: {
+        id: 'xai',
+        provider: 'xai',
+        model: 'grok-imagine-image-quality'
       }
     };
 
@@ -470,7 +482,7 @@
     els.systemMsg.addEventListener('input', saveSystemMsg);
 
     function isPrefillSupported() {
-      return state.provider !== 'openai';
+      return state.provider !== 'openai' && state.provider !== 'xai';
     }
 
     function updatePrefillUI() {
@@ -584,6 +596,31 @@
           if (data && data.usage) info.usage = data.usage;
           return info;
         }
+      },
+      xai: {
+        id: 'xai',
+        name: 'xAI',
+        apiKeyStorage: 'xai_api_key',
+        apiKeyLabel: 'xAI API Key',
+        apiKeyPlaceholder: 'xai-...',
+        buildRequest: buildXAIRequest,
+        parseResponse: parseXAIResponse,
+        url: function (mode) {
+          return mode === 'edits'
+            ? 'https://api.x.ai/v1/images/edits'
+            : 'https://api.x.ai/v1/images/generations';
+        },
+        headers: function (apiKey) {
+          return {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiKey
+          };
+        },
+        info: function (data) {
+          var info = {};
+          if (data && data.usage) info.usage = data.usage;
+          return info;
+        }
       }
     };
 
@@ -624,18 +661,25 @@
 
     function ensureImageSizeOptions() {
       var oldValue = els.imageSize.value || state.ui.savedSize || '1K';
+      var isXAI = state.provider === 'xai';
 
-      setSelectOptions(els.imageSize, [
-        { value: '1K', label: '1K' },
-        { value: '2K', label: '2K' },
-        { value: '4K', label: '4K' }
-      ]);
+      var options = isXAI
+        ? [
+            { value: '1K', label: '1K' },
+            { value: '2K', label: '2K' }
+          ]
+        : [
+            { value: '1K', label: '1K' },
+            { value: '2K', label: '2K' },
+            { value: '4K', label: '4K' }
+          ];
 
-      var valid = {
-        '1K': true,
-        '2K': true,
-        '4K': true
-      };
+      setSelectOptions(els.imageSize, options);
+
+      var valid = {};
+      for (var i = 0; i < options.length; i++) {
+        valid[options[i].value] = true;
+      }
 
       els.imageSize.value = valid[oldValue] ? oldValue : '1K';
       state.ui.savedSize = els.imageSize.value;
@@ -646,6 +690,32 @@
       '4:1': true,
       '1:8': true,
       '8:1': true
+    };
+
+    var XAI_ONLY_RATIOS = {
+      '1:2': true,
+      '2:1': true,
+      '9:19.5': true,
+      '19.5:9': true,
+      '9:20': true,
+      '20:9': true
+    };
+
+    var XAI_SUPPORTED_RATIOS = {
+      '': true,
+      '1:1': true,
+      '3:4': true,
+      '4:3': true,
+      '9:16': true,
+      '16:9': true,
+      '2:3': true,
+      '3:2': true,
+      '9:19.5': true,
+      '19.5:9': true,
+      '9:20': true,
+      '20:9': true,
+      '1:2': true,
+      '2:1': true
     };
 
     function gcd(a, b) {
@@ -754,14 +824,20 @@
 
     function applyProviderConstraints() {
       var isOpenAI = state.provider === 'openai';
+      var isXAI = state.provider === 'xai';
       var flash = isFlashModel();
 
       ensureImageSizeOptions();
 
       els.imageSizeLabel.textContent = 'Image Size';
-      els.systemMsgHelp.textContent = isOpenAI
-        ? 'System message to instruct the model. For OpenAI Images, this is prepended to the prompt.'
-        : 'System message to instruct the model.';
+
+      if (isOpenAI) {
+        els.systemMsgHelp.textContent = 'System message to instruct the model. For OpenAI Images, this is prepended to the prompt.';
+      } else if (isXAI) {
+        els.systemMsgHelp.textContent = 'System message to instruct the model. For xAI Images, this is prepended to the prompt.';
+      } else {
+        els.systemMsgHelp.textContent = 'System message to instruct the model.';
+      }
 
       els.qualityContainer.classList.toggle('hidden', !isOpenAI);
 
@@ -769,7 +845,11 @@
         var val = opt.value;
         var visible = true;
 
-        if (isOpenAI) {
+        if (isXAI) {
+          visible = !!XAI_SUPPORTED_RATIOS[val];
+        } else if (XAI_ONLY_RATIOS[val]) {
+          visible = false;
+        } else if (isOpenAI) {
           visible = val !== '' && !!calculateOpenAISize(val, els.imageSize.value);
         } else if (FLASH_ONLY_RATIOS[val]) {
           visible = flash;
@@ -1149,7 +1229,51 @@
       };
     }
 
-    // --- Response Parsing (OpenRouter, OpenAI only) ---
+    // --- xAI ---
+    async function buildXAIRequest(prompt) {
+      var apiKey = els.apiKey.value.trim();
+      var sysText = (els.systemMsg.value || '').trim();
+      var combinedPrompt = sysText ? (sysText + '\n\n' + prompt) : prompt;
+      var aspectRatio = (els.aspectRatio.value || '').trim();
+      var resolution = (els.imageSize.value || '1K').toLowerCase();
+      var hasImages = state.images.length > 0;
+
+      var body = {
+        model: state.model,
+        prompt: combinedPrompt,
+        response_format: 'b64_json',
+        resolution: resolution
+      };
+
+      if (aspectRatio) {
+        body.aspect_ratio = aspectRatio;
+      }
+
+      if (hasImages) {
+        body.images = state.images.map(function (img) {
+          return {
+            type: 'image_url',
+            url: img.dataUrl
+          };
+        });
+
+        return {
+          url: PROVIDERS.xai.url('edits'),
+          headers: PROVIDERS.xai.headers(apiKey),
+          body: JSON.stringify(body),
+          isForm: false
+        };
+      }
+
+      return {
+        url: PROVIDERS.xai.url('generations'),
+        headers: PROVIDERS.xai.headers(apiKey),
+        body: JSON.stringify(body),
+        isForm: false
+      };
+    }
+
+    // --- Response Parsing (OpenRouter, OpenAI, xAI) ---
     function parseOpenRouterResponse(data) {
       var items = [];
       var choices = Array.isArray(data && data.choices) ? data.choices : [];
@@ -1220,6 +1344,30 @@
             kind: 'image',
             url: url.trim(),
             mime: itemMime,
+            isThought: false
+          });
+        }
+      }
+
+      return {
+        items: items
+      };
+    }
+
+    function parseXAIResponse(data) {
+      var items = [];
+      var arr = Array.isArray(data && data.data) ? data.data : [];
+
+      for (var i = 0; i < arr.length; i++) {
+        var d = arr[i];
+        var b64 = d.b64_json || '';
+        var itemMime = d.mime_type || 'image/jpeg';
+
+        if (typeof b64 === 'string' && b64.trim()) {
+          items.push({
+            kind: 'image',
+            mime: itemMime,
+            base64: b64.trim(),
             isThought: false
           });
         }
@@ -1670,7 +1818,7 @@
       }
     }
 
-    // --- Non-streaming (OpenRouter, OpenAI) ---
+    // --- Non-streaming (OpenRouter, OpenAI, xAI) ---
     async function generateNonStream(prompt) {
       var provider = state.provider;
       var p = PROVIDERS[provider];
