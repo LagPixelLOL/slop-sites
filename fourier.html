@@ -1,0 +1,1425 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Fourier Image Editor</title>
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-zinc-950 text-zinc-200 antialiased selection:bg-zinc-700 selection:text-zinc-100">
+    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <!-- Header -->
+      <header class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Fourier Image Editor</h1>
+          <p class="mt-1 text-sm text-zinc-400">
+            Upload, paste <kbd class="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">Ctrl</kbd>+<kbd class="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">V</kbd>,
+            or drop an image anywhere -- then paint on its frequency spectrum.
+          </p>
+          <button
+            id="backendBadge"
+            disabled
+            title="Click to switch FFT backend (debug)"
+            class="mt-2 inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 transition enabled:cursor-pointer enabled:hover:border-zinc-600 enabled:hover:bg-zinc-800"
+          >
+            <span id="backendDot" class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span>
+            <span id="backendText" class="text-xs font-medium text-zinc-400">FFT backend: detecting...</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label
+            class="cursor-pointer rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-100 shadow-sm transition hover:bg-zinc-700 active:bg-zinc-600"
+          >
+            Upload image
+            <input id="fileInput" type="file" accept="image/*" class="hidden" />
+          </label>
+          <button
+            id="resetBtn"
+            class="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-300 shadow-sm transition enabled:hover:bg-zinc-800 enabled:active:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled
+          >
+            Reset spectrum
+          </button>
+        </div>
+      </header>
+
+      <!-- Controls -->
+      <section class="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div class="flex flex-wrap items-center gap-x-8 gap-y-4">
+          <!-- Channel mode -->
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500">Channel</span>
+            <div id="channelGroup" class="flex overflow-hidden rounded-lg border border-zinc-700">
+              <button data-ch="all" class="ch-btn border-r border-zinc-700 px-3.5 py-1.5 text-sm font-medium transition">All</button>
+              <button data-ch="r" class="ch-btn border-r border-zinc-700 px-3.5 py-1.5 text-sm font-medium transition">R</button>
+              <button data-ch="g" class="ch-btn border-r border-zinc-700 px-3.5 py-1.5 text-sm font-medium transition">G</button>
+              <button data-ch="b" class="ch-btn px-3.5 py-1.5 text-sm font-medium transition">B</button>
+            </div>
+          </div>
+
+          <!-- Brush size -->
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500">Brush size</span>
+            <input id="brushSize" type="range" min="1" max="80" value="8" class="h-1.5 w-40 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-zinc-300" />
+            <span id="brushSizeLabel" class="w-12 text-right font-mono text-sm text-zinc-300">8px</span>
+          </div>
+
+          <!-- Magnitude multiplier -->
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500">Multiplier</span>
+            <input id="brushValue" type="range" min="0" max="10" step="0.01" value="0" class="h-1.5 w-40 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-zinc-300" />
+            <span id="brushValueLabel" class="w-14 text-right font-mono text-sm text-zinc-300">0.00x</span>
+          </div>
+
+          <!-- Output mode -->
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-medium uppercase tracking-wider text-zinc-500">Output</span>
+            <div id="outputGroup" class="flex overflow-hidden rounded-lg border border-zinc-700">
+              <button data-out="mag" class="out-btn border-r border-zinc-700 px-3.5 py-1.5 text-sm font-medium transition">Magnitude</button>
+              <button data-out="real" class="out-btn px-3.5 py-1.5 text-sm font-medium transition">Real</button>
+            </div>
+          </div>
+        </div>
+        <p class="mt-3 text-xs text-zinc-500">
+          Painting multiplies the frequency magnitude (0x = erase, 1x = restore original, up to 10x = boost). Edits are mirrored to keep the image real. All mode edits every channel; R / G / B edit one.
+          Output: Magnitude shows |pixel| after the inverse FFT (negatives fold bright, no contrast stretch); Real clamps negatives to black.
+        </p>
+      </section>
+
+      <!-- Panels -->
+      <main class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Image panel -->
+        <section class="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900">
+          <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <h2 class="text-sm font-medium text-zinc-100">Image</h2>
+            <span id="imageInfo" class="font-mono text-xs text-zinc-500"></span>
+          </div>
+          <div class="flex flex-1 items-center justify-center p-4">
+            <div id="imagePlaceholder" class="flex flex-col items-center gap-2 py-24 text-center">
+              <svg class="h-10 w-10 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 12h.008v.008H18V12Zm-13.5 6.75h15a2.25 2.25 0 0 0 2.25-2.25V7.5a2.25 2.25 0 0 0-2.25-2.25h-15A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+              </svg>
+              <p class="text-sm text-zinc-500">No image yet</p>
+              <p class="text-xs text-zinc-600">Upload, paste, or drop one here</p>
+            </div>
+            <canvas id="imageCanvas" class="hidden max-w-full max-h-[70vh] cursor-pointer rounded-lg border border-zinc-800 bg-zinc-950 [image-rendering:auto]"></canvas>
+          </div>
+        </section>
+
+        <!-- Spectrum panel -->
+        <section class="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900">
+          <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <h2 class="text-sm font-medium text-zinc-100">Fourier spectrum <span class="ml-1 font-normal text-zinc-500">(log magnitude, centered)</span></h2>
+            <span id="specInfo" class="font-mono text-xs text-zinc-500"></span>
+          </div>
+          <div class="flex flex-1 items-center justify-center p-4">
+            <div id="specPlaceholder" class="flex flex-col items-center gap-2 py-24 text-center">
+              <svg class="h-10 w-10 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+              </svg>
+              <p class="text-sm text-zinc-500">Spectrum appears here</p>
+              <p class="text-xs text-zinc-600">Load an image to start editing</p>
+            </div>
+            <div id="specWrap" class="relative hidden w-fit max-w-full">
+              <canvas id="specCanvas" class="block max-w-full max-h-[70vh] cursor-none touch-none rounded-lg border border-zinc-800 bg-zinc-950"></canvas>
+              <canvas id="specOverlay" class="pointer-events-none absolute inset-0 h-full w-full"></canvas>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="mt-6 text-center text-xs text-zinc-600">
+        Images with transparency are flattened onto a white background. The FFT runs at the full original resolution -- on the GPU via WebGPU compute shaders when available, otherwise in a background JavaScript worker.
+      </footer>
+    </div>
+
+    <!-- Lightbox: click the image panel to enlarge; click anywhere to close -->
+    <div id="lightbox" class="fixed inset-0 z-50 hidden cursor-pointer items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <!-- Intrinsic size = full image resolution, so max-w/max-h only ever downscale, never upscale. -->
+      <canvas id="lightboxCanvas" class="max-h-full max-w-full rounded-lg shadow-2xl"></canvas>
+    </div>
+
+    <script>
+      "use strict";
+
+      // ================= FFT web worker =================
+      // All heavy math (forward FFT on load, inverse FFT after edits) runs here,
+      // off the main thread. The inverse runs in cooperative slices so a "cancel"
+      // or newer job message can kill it mid-flight.
+      function fourierWorker() {
+        let W = 0, H = 0;
+        let planW = null, planH = null;
+        const freqRe = [null, null, null];
+        const freqIm = [null, null, null];
+        let tmpRe = null, tmpIm = null, colRe = null, colIm = null;
+
+        let latest = -1;      // id of the newest wanted job; in-flight recons abort when it changes
+        let running = false;
+        let pending = null;
+
+        // Radix-2 in-place FFT (power-of-two lengths only).
+        function fft1d(re, im, n, inverse) {
+          for (let i = 1, j = 0; i < n; i++) {
+            let bit = n >> 1;
+            for (; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) {
+              let t = re[i]; re[i] = re[j]; re[j] = t;
+              t = im[i]; im[i] = im[j]; im[j] = t;
+            }
+          }
+          for (let len = 2; len <= n; len <<= 1) {
+            const ang = ((inverse ? 2 : -2) * Math.PI) / len;
+            const wr = Math.cos(ang), wi = Math.sin(ang);
+            const half = len >> 1;
+            for (let i = 0; i < n; i += len) {
+              let cr = 1, ci = 0;
+              for (let k = 0; k < half; k++) {
+                const a = i + k, b = a + half;
+                const vr = re[b] * cr - im[b] * ci;
+                const vi = re[b] * ci + im[b] * cr;
+                re[b] = re[a] - vr; im[b] = im[a] - vi;
+                re[a] += vr; im[a] += vi;
+                const ncr = cr * wr - ci * wi;
+                ci = cr * wi + ci * wr;
+                cr = ncr;
+              }
+            }
+          }
+          if (inverse) {
+            for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+          }
+        }
+
+        function pow2ceil(v) { let p = 1; while (p < v) p <<= 1; return p; }
+
+        // 1D FFT plan for arbitrary length N (Bluestein chirp-z when N is not a power of two).
+        function makePlan(N) {
+          if ((N & (N - 1)) === 0) return { N, pow2: true };
+          const M = pow2ceil(2 * N - 1);
+          const cr = new Float64Array(N), ci = new Float64Array(N); // forward chirp e^{-i pi k^2 / N}
+          const br = new Float64Array(M), bi = new Float64Array(M); // FFT of conjugate chirp
+          for (let k = 0; k < N; k++) {
+            const ang = (Math.PI * ((k * k) % (2 * N))) / N;
+            cr[k] = Math.cos(ang);
+            ci[k] = -Math.sin(ang);
+            br[k] = cr[k]; bi[k] = -ci[k];
+            if (k > 0) { br[M - k] = cr[k]; bi[M - k] = -ci[k]; }
+          }
+          fft1d(br, bi, M, false);
+          return { N, pow2: false, M, cr, ci, br, bi, ar: new Float64Array(M), ai: new Float64Array(M) };
+        }
+
+        // 1D FFT of arbitrary length using a plan.
+        function fftN(plan, re, im, inverse) {
+          const N = plan.N;
+          if (plan.pow2) { fft1d(re, im, N, inverse); return; }
+          if (inverse) {
+            for (let i = 0; i < N; i++) im[i] = -im[i];
+            fftN(plan, re, im, false);
+            for (let i = 0; i < N; i++) { re[i] /= N; im[i] = -im[i] / N; }
+            return;
+          }
+          const M = plan.M, cr = plan.cr, ci = plan.ci, br = plan.br, bi = plan.bi, ar = plan.ar, ai = plan.ai;
+          ar.fill(0); ai.fill(0);
+          for (let k = 0; k < N; k++) {
+            ar[k] = re[k] * cr[k] - im[k] * ci[k];
+            ai[k] = re[k] * ci[k] + im[k] * cr[k];
+          }
+          fft1d(ar, ai, M, false);
+          for (let i = 0; i < M; i++) {
+            const r = ar[i] * br[i] - ai[i] * bi[i];
+            ai[i] = ar[i] * bi[i] + ai[i] * br[i];
+            ar[i] = r;
+          }
+          fft1d(ar, ai, M, true);
+          for (let k = 0; k < N; k++) {
+            re[k] = ar[k] * cr[k] - ai[k] * ci[k];
+            im[k] = ar[k] * ci[k] + ai[k] * cr[k];
+          }
+        }
+
+        function fft2d(re, im, inverse) {
+          for (let y = 0; y < H; y++) {
+            fftN(planW, re.subarray(y * W, y * W + W), im.subarray(y * W, y * W + W), inverse);
+          }
+          for (let x = 0; x < W; x++) {
+            for (let y = 0; y < H; y++) {
+              colRe[y] = re[y * W + x];
+              colIm[y] = im[y * W + x];
+            }
+            fftN(planH, colRe, colIm, inverse);
+            for (let y = 0; y < H; y++) {
+              re[y * W + x] = colRe[y];
+              im[y * W + x] = colIm[y];
+            }
+          }
+        }
+
+        const tick = () => new Promise((r) => setTimeout(r, 0));
+
+        // Cooperative, cancellable inverse FFT. Returns null if the job was killed.
+        async function recon(job) {
+          const n = W * H;
+          const CHUNK = 1 << 17;
+          const px = new Uint8ClampedArray(n * 4);
+          let deadline = Date.now() + 40;
+          const checkpoint = async () => {
+            if (Date.now() > deadline) {
+              await tick(); // lets newer "recon"/"cancel"/"init" messages arrive
+              deadline = Date.now() + 40;
+            }
+            return job.id === latest;
+          };
+
+          for (let c = 0; c < 3; c++) {
+            const fr = freqRe[c], fi = freqIm[c], mk = job.masks[c];
+            // Apply mask
+            for (let s = 0; s < n; s += CHUNK) {
+              const e = Math.min(n, s + CHUNK);
+              for (let i = s; i < e; i++) {
+                tmpRe[i] = fr[i] * mk[i];
+                tmpIm[i] = fi[i] * mk[i];
+              }
+              if (!(await checkpoint())) return null;
+            }
+            // Inverse FFT rows
+            for (let y = 0; y < H; y++) {
+              fftN(planW, tmpRe.subarray(y * W, y * W + W), tmpIm.subarray(y * W, y * W + W), true);
+              if (!(await checkpoint())) return null;
+            }
+            // Inverse FFT columns
+            for (let x = 0; x < W; x++) {
+              for (let y = 0; y < H; y++) {
+                colRe[y] = tmpRe[y * W + x];
+                colIm[y] = tmpIm[y * W + x];
+              }
+              fftN(planH, colRe, colIm, true);
+              for (let y = 0; y < H; y++) {
+                tmpRe[y * W + x] = colRe[y];
+                tmpIm[y * W + x] = colIm[y];
+              }
+              if (!(await checkpoint())) return null;
+            }
+            // Write channel. "mag" folds negative/complex values bright via |z|
+            // (no contrast stretch); "real" clamps negatives to black.
+            const useMag = job.mode === "mag";
+            for (let s = 0; s < n; s += CHUNK) {
+              const e = Math.min(n, s + CHUNK);
+              for (let i = s; i < e; i++) {
+                const v = useMag ? Math.hypot(tmpRe[i], tmpIm[i]) : tmpRe[i];
+                px[i * 4 + c] = v < 0 ? 0 : v > 255 ? 255 : v;
+              }
+              if (!(await checkpoint())) return null;
+            }
+          }
+          for (let i = 0; i < n; i++) px[i * 4 + 3] = 255;
+          return px;
+        }
+
+        async function runLoop() {
+          running = true;
+          while (pending) {
+            const job = pending;
+            pending = null;
+            const px = await recon(job);
+            if (px) self.postMessage({ type: "recon", id: job.id, pixels: px }, [px.buffer]);
+          }
+          running = false;
+        }
+
+        self.onmessage = (ev) => {
+          const msg = ev.data;
+          if (msg.type === "init") {
+            latest = -1; // kill any in-flight reconstruction of the previous image
+            pending = null;
+            W = msg.width; H = msg.height;
+            planW = makePlan(W);
+            planH = makePlan(H);
+            const n = W * H;
+            tmpRe = new Float32Array(n);
+            tmpIm = new Float32Array(n);
+            colRe = new Float64Array(H);
+            colIm = new Float64Array(H);
+            const chans = [msg.r, msg.g, msg.b];
+            const mags = [];
+            for (let c = 0; c < 3; c++) {
+              freqRe[c] = chans[c]; // spatial data, transformed in place
+              freqIm[c] = new Float32Array(n);
+              fft2d(freqRe[c], freqIm[c], false);
+              const mg = new Float32Array(n);
+              let m = 0;
+              for (let i = 0; i < n; i++) {
+                const v = Math.hypot(freqRe[c][i], freqIm[c][i]);
+                mg[i] = v;
+                if (v > m) m = v;
+              }
+              const lm = Math.log1p(m) || 1;
+              // Normalized log brightness (0..255); the display scales this by the mask.
+              for (let i = 0; i < n; i++) mg[i] = (255 * Math.log1p(mg[i])) / lm;
+              mags.push(mg);
+            }
+            self.postMessage({ type: "ready", id: msg.id, mags }, [mags[0].buffer, mags[1].buffer, mags[2].buffer]);
+          } else if (msg.type === "recon") {
+            latest = msg.id;
+            pending = msg;
+            if (!running) runLoop();
+          } else if (msg.type === "cancel") {
+            latest = -1;
+            pending = null;
+          }
+        };
+      }
+
+      // The worker is respawned per image load: terminating it is the only way to
+      // instantly kill a synchronous forward FFT if the user loads another image
+      // before the previous one finished processing. All state is re-transferred
+      // on init, so nothing is lost.
+      const workerUrl = URL.createObjectURL(
+        new Blob(["(", fourierWorker.toString(), ")()"], { type: "text/javascript" })
+      );
+      let worker = null;
+
+      function spawnWorker() {
+        if (worker) worker.terminate();
+        worker = new Worker(workerUrl);
+        worker.onmessage = onWorkerMessage;
+      }
+
+      // ================= WebGPU FFT backend =================
+      // Compute-shader FFT: Stockham radix-2 passes for power-of-two lengths,
+      // Bluestein chirp-z (pre/convolve/post kernels around padded radix-2 FFTs)
+      // for arbitrary lengths. Falls back to the JS worker when unavailable.
+
+      // Small CPU radix-2 FFT, used only to precompute Bluestein kernel spectra.
+      const pow2ceil = (v) => { let p = 1; while (p < v) p <<= 1; return p; };
+      function cpuFFT(re, im, n, inverse) {
+        for (let i = 1, j = 0; i < n; i++) {
+          let bit = n >> 1;
+          for (; j & bit; bit >>= 1) j ^= bit;
+          j ^= bit;
+          if (i < j) {
+            let t = re[i]; re[i] = re[j]; re[j] = t;
+            t = im[i]; im[i] = im[j]; im[j] = t;
+          }
+        }
+        for (let len = 2; len <= n; len <<= 1) {
+          const ang = ((inverse ? 2 : -2) * Math.PI) / len;
+          const wr = Math.cos(ang), wi = Math.sin(ang);
+          const half = len >> 1;
+          for (let i = 0; i < n; i += len) {
+            let cr = 1, ci = 0;
+            for (let k = 0; k < half; k++) {
+              const a = i + k, b = a + half;
+              const vr = re[b] * cr - im[b] * ci;
+              const vi = re[b] * ci + im[b] * cr;
+              re[b] = re[a] - vr; im[b] = im[a] - vi;
+              re[a] += vr; im[a] += vi;
+              const ncr = cr * wr - ci * wi;
+              ci = cr * wi + ci * wr;
+              cr = ncr;
+            }
+          }
+        }
+        if (inverse) {
+          for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+        }
+      }
+
+      const FFT_WGSL = `
+        struct P {
+          m: u32, ns: u32, n: u32, nLines: u32,
+          sS: u32, sLS: u32, dS: u32, dLS: u32,
+          dir: f32, scale: f32, mode: u32, chan: u32,
+        };
+        @group(0) @binding(0) var<uniform> p: P;
+        @group(0) @binding(1) var<storage, read> src: array<vec2f>;
+        @group(0) @binding(2) var<storage, read_write> dst: array<vec2f>;
+        @group(0) @binding(3) var<storage, read> aux: array<vec2f>;
+        @group(0) @binding(4) var<storage, read> maskf: array<f32>;
+        @group(0) @binding(5) var<storage, read_write> outw: array<u32>;
+        @group(0) @binding(6) var<storage, read_write> outf: array<f32>;
+
+        const PI = 3.141592653589793;
+        const SPAN = 262144u; // linear kernels: 1024 groups x 256 threads per y-slice
+
+        fn cmul(a: vec2f, b: vec2f) -> vec2f {
+          return vec2f(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+        }
+
+        // One Stockham radix-2 pass along an axis. Lines are independent
+        // 1D transforms; sS/sLS give the element/line strides (same for dst).
+        @compute @workgroup_size(256)
+        fn fft_pass(@builtin(global_invocation_id) g: vec3u) {
+          let half = p.m >> 1u;
+          if (g.x >= half || g.y >= p.nLines) { return; }
+          let k = g.x % p.ns;
+          let base = g.y * p.sLS;
+          let a = src[base + g.x * p.sS];
+          let b = src[base + (g.x + half) * p.sS];
+          let ang = p.dir * PI * f32(k) / f32(p.ns);
+          let t = cmul(b, vec2f(cos(ang), sin(ang)));
+          let o = base + (2u * (g.x - k) + k) * p.sS; // 2*q*ns + k
+          dst[o] = a + t;
+          dst[o + p.ns * p.sS] = a - t;
+        }
+
+        // Bluestein step 1: a[k] = x[k] * chirp[k], zero-padded N -> M.
+        @compute @workgroup_size(256)
+        fn blu_pre(@builtin(global_invocation_id) g: vec3u) {
+          if (g.x >= p.m || g.y >= p.nLines) { return; }
+          var v = vec2f(0.0, 0.0);
+          if (g.x < p.n) {
+            v = cmul(src[g.y * p.sLS + g.x * p.sS], aux[g.x]);
+          }
+          dst[g.y * p.dLS + g.x * p.dS] = v;
+        }
+
+        // Bluestein step 2: pointwise multiply by FFT(kernel) in the M domain.
+        @compute @workgroup_size(256)
+        fn mul_aux(@builtin(global_invocation_id) g: vec3u) {
+          if (g.x >= p.m || g.y >= p.nLines) { return; }
+          let i = g.y * p.sLS + g.x * p.sS;
+          dst[i] = cmul(src[i], aux[g.x]);
+        }
+
+        // Bluestein step 3: X[k] = c[k] * chirp[k] * (1/M), extracted M -> N.
+        @compute @workgroup_size(256)
+        fn blu_post(@builtin(global_invocation_id) g: vec3u) {
+          if (g.x >= p.n || g.y >= p.nLines) { return; }
+          let v = cmul(src[g.y * p.sLS + g.x * p.sS], aux[g.x]);
+          dst[g.y * p.dLS + g.x * p.dS] = v * p.scale;
+        }
+
+        @compute @workgroup_size(256)
+        fn mask_mul(@builtin(global_invocation_id) g: vec3u) {
+          let i = g.y * SPAN + g.x;
+          if (i >= p.n) { return; }
+          dst[i] = src[i] * maskf[i];
+        }
+
+        // Write one channel byte of the RGBA output. mode 1 = |z|, else real.
+        @compute @workgroup_size(256)
+        fn pack_pix(@builtin(global_invocation_id) g: vec3u) {
+          let i = g.y * SPAN + g.x;
+          if (i >= p.n) { return; }
+          let z = src[i];
+          var v: f32;
+          if (p.mode == 1u) { v = length(z); } else { v = z.x; }
+          v = clamp(v * p.scale, 0.0, 255.0);
+          let sh = p.chan * 8u;
+          outw[i] = (outw[i] & ~(255u << sh)) | (u32(v + 0.5) << sh) | 0xFF000000u;
+        }
+
+        @compute @workgroup_size(256)
+        fn magn(@builtin(global_invocation_id) g: vec3u) {
+          let i = g.y * SPAN + g.x;
+          if (i >= p.n) { return; }
+          outf[i] = length(src[i]);
+        }
+      `;
+
+      class GpuFFT {
+        static async create() {
+          try {
+            if (!navigator.gpu) return null;
+            const adapter = await navigator.gpu.requestAdapter();
+            if (!adapter) return null;
+            const device = await adapter.requestDevice({
+              requiredLimits: {
+                maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
+                maxBufferSize: adapter.limits.maxBufferSize,
+              },
+            });
+            return new GpuFFT(device);
+          } catch (e) {
+            return null;
+          }
+        }
+
+        constructor(device) {
+          this.device = device;
+          const module = device.createShaderModule({ code: FFT_WGSL });
+          this.pipes = {};
+          for (const name of ["fft_pass", "blu_pre", "mul_aux", "blu_post", "mask_mul", "pack_pix", "magn"]) {
+            this.pipes[name] = device.createComputePipeline({
+              layout: "auto",
+              compute: { module, entryPoint: name },
+            });
+          }
+          this.chain = Promise.resolve(); // serializes setImage/reconstruct
+          this.img = null;
+          this._all = null;
+        }
+
+        run(fn) {
+          const p = this.chain.then(fn);
+          this.chain = p.then(() => {}, () => {});
+          return p;
+        }
+
+        sizes(w, h) {
+          const n = w * h;
+          const mx = (w & (w - 1)) === 0 ? 0 : pow2ceil(2 * w - 1);
+          const my = (h & (h - 1)) === 0 ? 0 : pow2ceil(2 * h - 1);
+          return { n, S: Math.max(n, mx * h, my * w) };
+        }
+
+        fits(w, h) {
+          const { S } = this.sizes(w, h);
+          const L = this.device.limits;
+          return S * 8 <= L.maxStorageBufferBindingSize && S * 8 <= L.maxBufferSize &&
+            h <= 65535 && w <= 65535;
+        }
+
+        _track(buf) {
+          if (this._all) this._all.push(buf);
+          return buf;
+        }
+
+        uni(o) {
+          const ab = new ArrayBuffer(48);
+          const u = new Uint32Array(ab), f = new Float32Array(ab);
+          u[0] = o.m || 0; u[1] = o.ns || 0; u[2] = o.n || 0; u[3] = o.nLines || 0;
+          u[4] = o.sS || 0; u[5] = o.sLS || 0; u[6] = o.dS || 0; u[7] = o.dLS || 0;
+          f[8] = o.dir || 0; f[9] = o.scale == null ? 1 : o.scale; u[10] = o.mode || 0; u[11] = o.chan || 0;
+          const buf = this.device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM, mappedAtCreation: true });
+          new Uint8Array(buf.getMappedRange()).set(new Uint8Array(ab));
+          buf.unmap();
+          return this._track(buf);
+        }
+
+        dataBuf(f32) {
+          const buf = this.device.createBuffer({
+            size: f32.byteLength,
+            usage: GPUBufferUsage.STORAGE,
+            mappedAtCreation: true,
+          });
+          new Float32Array(buf.getMappedRange()).set(f32);
+          buf.unmap();
+          return this._track(buf);
+        }
+
+        // Plan for 1D transforms of length N along one axis of a W x H grid.
+        makeAxisPlan(N, nLines, axis) {
+          const s = axis === "x" ? 1 : nLines;      // element stride (y-axis lines are nLines=W apart)
+          const ls = axis === "x" ? N : 1;          // line stride in the W x H layout
+          // Careful: for the x axis the line stride is the row length W = N;
+          // for the y axis, columns start at consecutive offsets.
+          const plan = { N, nLines, pow2: (N & (N - 1)) === 0 };
+          if (plan.pow2) {
+            plan.passes = { "-1": [], "1": [] };
+            for (const dir of [-1, 1]) {
+              for (let ns = 1; ns < N; ns <<= 1) {
+                plan.passes[dir].push(this.uni({ m: N, ns, nLines, sS: s, sLS: ls, dir }));
+              }
+            }
+            return plan;
+          }
+          const M = pow2ceil(2 * N - 1);
+          plan.M = M;
+          const mS = axis === "x" ? 1 : nLines;     // M-domain layout strides
+          const mLS = axis === "x" ? M : 1;
+          plan.dir = {};
+          for (const dir of [-1, 1]) {
+            // chirp[k] = e^{dir * i*pi*k^2/N}; convolution kernel = conj(chirp), wrapped.
+            const cr = new Float64Array(N), ci = new Float64Array(N);
+            const chirp = new Float32Array(2 * N);
+            for (let k = 0; k < N; k++) {
+              const ang = ((Math.PI * ((k * k) % (2 * N))) / N) * dir;
+              cr[k] = Math.cos(ang); ci[k] = Math.sin(ang);
+              chirp[2 * k] = cr[k]; chirp[2 * k + 1] = ci[k];
+            }
+            const br = new Float64Array(M), bi = new Float64Array(M);
+            for (let k = 0; k < N; k++) {
+              br[k] = cr[k]; bi[k] = -ci[k];
+              if (k > 0) { br[M - k] = cr[k]; bi[M - k] = -ci[k]; }
+            }
+            cpuFFT(br, bi, M, false);
+            const B = new Float32Array(2 * M);
+            for (let i = 0; i < M; i++) { B[2 * i] = br[i]; B[2 * i + 1] = bi[i]; }
+            const d = {
+              chirp: this.dataBuf(chirp),
+              B: this.dataBuf(B),
+              pre: this.uni({ n: N, m: M, nLines, sS: s, sLS: ls, dS: mS, dLS: mLS }),
+              mul: this.uni({ m: M, nLines, sS: mS, sLS: mLS }),
+              post: this.uni({ n: N, m: M, nLines, sS: mS, sLS: mLS, dS: s, dLS: ls, scale: 1 / M }),
+              inner: [], innerInv: [],
+            };
+            for (let ns = 1; ns < M; ns <<= 1) {
+              d.inner.push(this.uni({ m: M, ns, nLines, sS: mS, sLS: mLS, dir: -1 }));
+              d.innerInv.push(this.uni({ m: M, ns, nLines, sS: mS, sLS: mLS, dir: 1 }));
+            }
+            plan.dir[dir] = d;
+          }
+          return plan;
+        }
+
+        bg(pipe, entries) {
+          return this.device.createBindGroup({
+            layout: pipe.getBindGroupLayout(0),
+            entries: entries.map(([binding, buffer]) => ({ binding, resource: { buffer } })),
+          });
+        }
+
+        d2(cp, name, xThreads, yLines, entries) {
+          const pipe = this.pipes[name];
+          cp.setPipeline(pipe);
+          cp.setBindGroup(0, this.bg(pipe, entries));
+          cp.dispatchWorkgroups(Math.ceil(xThreads / 256), yLines);
+        }
+
+        dN(cp, name, n, entries) {
+          const pipe = this.pipes[name];
+          cp.setPipeline(pipe);
+          cp.setBindGroup(0, this.bg(pipe, entries));
+          const ySlices = Math.ceil(n / 262144);
+          cp.dispatchWorkgroups(ySlices > 1 ? 1024 : Math.ceil(n / 256), ySlices);
+        }
+
+        // Runs the 1D transforms of one axis; cur is the ping-pong index into
+        // [bufA, bufB] holding the input; returns the index holding the output.
+        axisExec(cp, plan, dir, cur) {
+          const img = this.img, bufs = [img.bufA, img.bufB];
+          if (plan.pow2) {
+            for (const u of plan.passes[dir]) {
+              this.d2(cp, "fft_pass", plan.N >> 1, plan.nLines, [[0, u], [1, bufs[cur]], [2, bufs[cur ^ 1]]]);
+              cur ^= 1;
+            }
+            return cur;
+          }
+          const d = plan.dir[dir];
+          this.d2(cp, "blu_pre", plan.M, plan.nLines, [[0, d.pre], [1, bufs[cur]], [2, bufs[cur ^ 1]], [3, d.chirp]]);
+          cur ^= 1;
+          for (const u of d.inner) {
+            this.d2(cp, "fft_pass", plan.M >> 1, plan.nLines, [[0, u], [1, bufs[cur]], [2, bufs[cur ^ 1]]]);
+            cur ^= 1;
+          }
+          this.d2(cp, "mul_aux", plan.M, plan.nLines, [[0, d.mul], [1, bufs[cur]], [2, bufs[cur ^ 1]], [3, d.B]]);
+          cur ^= 1;
+          for (const u of d.innerInv) {
+            this.d2(cp, "fft_pass", plan.M >> 1, plan.nLines, [[0, u], [1, bufs[cur]], [2, bufs[cur ^ 1]]]);
+            cur ^= 1;
+          }
+          this.d2(cp, "blu_post", plan.N, plan.nLines, [[0, d.post], [1, bufs[cur]], [2, bufs[cur ^ 1]], [3, d.chirp]]);
+          return cur ^ 1;
+        }
+
+        disposeImage() {
+          if (this.img) {
+            for (const b of this.img.all) { try { b.destroy(); } catch (e) {} }
+            this.img = null;
+          }
+          this._all = null;
+        }
+
+        dispose() {
+          this.disposeImage();
+          try { this.device.destroy(); } catch (e) {}
+        }
+
+        // Forward FFT of all three channels; keeps frequency data on the GPU and
+        // returns normalized log-magnitude Float32Arrays for the spectrum display.
+        // isStale() is polled between chunks: a superseded job returns null
+        // instead of doing (more) useless work.
+        setImage(w, h, channels, isStale) {
+          return this.run(async () => {
+            if (isStale && isStale()) return null;
+            this.disposeImage();
+            const dev = this.device;
+            const { n, S } = this.sizes(w, h);
+            const img = this.img = { w, h, n, all: [] };
+            this._all = img.all;
+            const SB = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
+            img.bufA = this._track(dev.createBuffer({ size: S * 8, usage: SB }));
+            img.bufB = this._track(dev.createBuffer({ size: S * 8, usage: SB }));
+            img.freq = [0, 1, 2].map(() => this._track(dev.createBuffer({ size: n * 8, usage: SB })));
+            img.maskBuf = this._track(dev.createBuffer({ size: n * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }));
+            img.scratch = this._track(dev.createBuffer({ size: n * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC }));
+            img.staging = this._track(dev.createBuffer({ size: n * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST }));
+            img.planX = this.makeAxisPlan(w, h, "x");
+            img.planY = this.makeAxisPlan(h, w, "y");
+            img.uniN = this.uni({ n });
+            img.packU = [0, 1].map((mode) =>
+              [0, 1, 2].map((chan) => this.uni({ n, scale: 1 / n, mode, chan }))
+            );
+            this._all = null;
+
+            const up = new Float32Array(2 * n);
+            const mags = [];
+            for (let c = 0; c < 3; c++) {
+              if (isStale && isStale()) return null;
+              const ch = channels[c];
+              for (let i = 0; i < n; i++) { up[2 * i] = ch[i]; up[2 * i + 1] = 0; }
+              dev.queue.writeBuffer(img.bufA, 0, up);
+              const enc = dev.createCommandEncoder();
+              const cp = enc.beginComputePass();
+              let cur = 0;
+              cur = this.axisExec(cp, img.planX, -1, cur);
+              cur = this.axisExec(cp, img.planY, -1, cur);
+              this.dN(cp, "magn", n, [[0, img.uniN], [1, cur ? img.bufB : img.bufA], [6, img.scratch]]);
+              cp.end();
+              enc.copyBufferToBuffer(cur ? img.bufB : img.bufA, 0, img.freq[c], 0, n * 8);
+              enc.copyBufferToBuffer(img.scratch, 0, img.staging, 0, n * 4);
+              dev.queue.submit([enc.finish()]);
+              await img.staging.mapAsync(GPUMapMode.READ);
+              const magv = new Float32Array(img.staging.getMappedRange().slice(0));
+              img.staging.unmap();
+              let m = 0;
+              for (let i = 0; i < n; i++) if (magv[i] > m) m = magv[i];
+              const lm = Math.log1p(m) || 1;
+              for (let i = 0; i < n; i++) magv[i] = (255 * Math.log1p(magv[i])) / lm;
+              mags.push(magv);
+            }
+            return mags;
+          });
+        }
+
+        // Inverse FFT of freq * mask, packed to RGBA bytes on the GPU.
+        // Rapid brush strokes queue one job each on the serialized chain; the
+        // isStale() checks make superseded jobs no-ops (returning null) instead
+        // of stacking full IFFTs. getMasks() defers the mask snapshot until the
+        // job actually runs, so skipped jobs never pay the copy either.
+        reconstruct(getMasks, mode, isStale) {
+          return this.run(async () => {
+            if (isStale && isStale()) return null;
+            const img = this.img;
+            if (!img) throw new Error("no image on GPU");
+            const dev = this.device;
+            const modeU = mode === "mag" ? 1 : 0;
+            const masks = getMasks();
+            for (let c = 0; c < 3; c++) {
+              if (isStale && isStale()) return null;
+              dev.queue.writeBuffer(img.maskBuf, 0, masks[c]);
+              const enc = dev.createCommandEncoder();
+              const cp = enc.beginComputePass();
+              this.dN(cp, "mask_mul", img.n, [[0, img.uniN], [1, img.freq[c]], [2, img.bufA], [4, img.maskBuf]]);
+              let cur = 0;
+              cur = this.axisExec(cp, img.planX, 1, cur);
+              cur = this.axisExec(cp, img.planY, 1, cur);
+              this.dN(cp, "pack_pix", img.n, [[0, img.packU[modeU][c]], [1, cur ? img.bufB : img.bufA], [5, img.scratch]]);
+              cp.end();
+              dev.queue.submit([enc.finish()]);
+            }
+            if (isStale && isStale()) return null; // skip the readback too
+            const enc = dev.createCommandEncoder();
+            enc.copyBufferToBuffer(img.scratch, 0, img.staging, 0, img.n * 4);
+            dev.queue.submit([enc.finish()]);
+            await img.staging.mapAsync(GPUMapMode.READ);
+            const px = new Uint8ClampedArray(img.staging.getMappedRange().slice(0));
+            img.staging.unmap();
+            return px;
+          });
+        }
+      }
+
+      // ---------- DOM ----------
+      const fileInput = document.getElementById("fileInput");
+      const resetBtn = document.getElementById("resetBtn");
+      const channelGroup = document.getElementById("channelGroup");
+      const outputGroup = document.getElementById("outputGroup");
+      const brushSizeEl = document.getElementById("brushSize");
+      const brushValueEl = document.getElementById("brushValue");
+      const brushSizeLabel = document.getElementById("brushSizeLabel");
+      const brushValueLabel = document.getElementById("brushValueLabel");
+      const imageCanvas = document.getElementById("imageCanvas");
+      const specCanvas = document.getElementById("specCanvas");
+      const specOverlay = document.getElementById("specOverlay");
+      const specWrap = document.getElementById("specWrap");
+      const imagePlaceholder = document.getElementById("imagePlaceholder");
+      const specPlaceholder = document.getElementById("specPlaceholder");
+      const imageInfo = document.getElementById("imageInfo");
+      const specInfo = document.getElementById("specInfo");
+
+      const imgCtx = imageCanvas.getContext("2d");
+      const specCtx = specCanvas.getContext("2d");
+      const ovCtx = specOverlay.getContext("2d");
+
+      // ---------- State ----------
+      let W = 0, H = 0;                 // processing size (original image size)
+      let channelMode = "all";          // "all" | "r" | "g" | "b"
+      let outputMode = "mag";           // "mag" | "real" -- inverse-FFT output mapping
+      let brushRadius = 8;
+      let brushValue = 0;
+      let loaded = false;
+
+      const mag = [null, null, null];   // normalized log magnitude (0..255), from the backend
+      const mask = [null, null, null];  // editable multiplier per channel
+      let specImageData = null;
+
+      let initId = 0;   // gates "ready" replies to the most recent image
+      let jobId = 0;    // gates "recon" replies to the most recent request
+
+      // ---------- Backend selection ----------
+      let gpuFFT = null;              // GpuFFT instance, or null
+      let gpuFailed = false;          // GPU errored/lost at some point
+      let preferredBackend = "gpu";   // user-selectable via the badge (debug)
+      let activeBackend = "js";       // backend of the *current* image: "gpu" | "js"
+      let origPixels = null;          // flattened RGBA of current image (re-init/fallback)
+      let reconAfterReady = false;    // run a reconstruction once (re)init finishes
+
+      const backendBadge = document.getElementById("backendBadge");
+      const backendDot = document.getElementById("backendDot");
+      const backendText = document.getElementById("backendText");
+
+      function setBadge(kind) {
+        const cfg = {
+          probing: ["bg-zinc-500", "detecting..."],
+          webgpu: ["bg-emerald-400", "WebGPU"],
+          js: ["bg-amber-400", "JavaScript (WebGPU unavailable)"],
+          "js-manual": ["bg-amber-400", "JavaScript (manual)"],
+          "js-large": ["bg-amber-400", "JavaScript (image exceeds GPU limits)"],
+          "js-failed": ["bg-red-400", "JavaScript (GPU error fallback)"],
+        }[kind];
+        backendDot.className = "h-1.5 w-1.5 rounded-full " + cfg[0];
+        backendText.textContent = "FFT backend: " + cfg[1];
+      }
+
+      // Which badge label applies when the JS path is (or would be) used.
+      function jsBadgeKind() {
+        if (gpuFailed) return "js-failed";
+        if (!gpuFFT) return "js";
+        if (preferredBackend === "js") return "js-manual";
+        return "js-large";
+      }
+
+      function applyReady(mags) {
+        mag[0] = mags[0];
+        mag[1] = mags[1];
+        mag[2] = mags[2];
+        loaded = true;
+        resetBtn.disabled = false;
+        specInfo.textContent = `${W}x${H}`;
+        renderSpectrum();
+        if (reconAfterReady) {
+          reconAfterReady = false;
+          reconstruct();
+        }
+      }
+
+      function startWorkerInit(id, r, g, b) {
+        spawnWorker();
+        worker.postMessage({ type: "init", id, width: W, height: H, r, g, b }, [r.buffer, g.buffer, b.buffer]);
+      }
+
+      // (Re)start the forward FFT of the current image (W/H/origPixels) on the
+      // preferred backend. Safe against every in-flight state: bumping initId
+      // stales any pending "ready", bumping jobId stales any pending recon,
+      // terminating the worker kills JS work instantly, and GPU work is
+      // serialized inside GpuFFT and discarded via the id gates.
+      function startBackendInit() {
+        loaded = false;
+        resetBtn.disabled = true;
+        specInfo.textContent = "computing...";
+        jobId++;
+        const id = ++initId;
+        const n = W * H;
+        const r = new Float32Array(n), g = new Float32Array(n), b = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          r[i] = origPixels[i * 4];
+          g[i] = origPixels[i * 4 + 1];
+          b[i] = origPixels[i * 4 + 2];
+        }
+        if (preferredBackend === "gpu" && gpuFFT && gpuFFT.fits(W, H)) {
+          activeBackend = "gpu";
+          setBadge("webgpu");
+          if (worker) { worker.terminate(); worker = null; } // kill any old JS work
+          gpuFFT.setImage(W, H, [r, g, b], () => id !== initId).then((mags) => {
+            if (!mags || id !== initId) return; // stale image / superseded by a toggle
+            applyReady(mags);
+          }).catch((err) => gpuFail(err)); // rebuilds the current image on the worker
+        } else {
+          activeBackend = "js";
+          setBadge(jsBadgeKind());
+          startWorkerInit(id, r, g, b);
+          // Free GPU memory if we just left the GPU backend (chained after any
+          // in-flight GPU job so buffers are never destroyed mid-use).
+          if (gpuFFT) gpuFFT.run(() => gpuFFT.disposeImage());
+        }
+      }
+
+      // GPU died or errored: drop it for good and rebuild the current image on
+      // the JS worker from the retained flattened pixels, then redo the recon.
+      function gpuFail(err) {
+        if (err) console.error("WebGPU FFT failed, falling back to JS:", err);
+        if (gpuFFT) { try { gpuFFT.dispose(); } catch (e) {} }
+        gpuFFT = null;
+        gpuFailed = true;
+        backendBadge.disabled = true; // nothing left to toggle to
+        setBadge("js-failed");
+        if (activeBackend !== "gpu" || !origPixels || !W) return;
+        reconAfterReady = true;
+        startBackendInit();
+      }
+
+      setBadge("probing");
+      GpuFFT.create().then((g) => {
+        // Note: an image loaded before detection finishes simply uses the worker.
+        gpuFFT = g;
+        if (g) {
+          setBadge("webgpu");
+          backendBadge.disabled = false; // toggling only allowed with a working GPU
+          g.device.lost.then(() => gpuFail(new Error("GPU device lost")));
+        } else {
+          setBadge("js"); // badge stays disabled: no other backend to switch to
+        }
+      });
+
+      // Debug: click the badge to flip backends and recompute the current image.
+      backendBadge.addEventListener("click", () => {
+        if (!gpuFFT) return; // unavailable/failed: pointer is blocked anyway
+        preferredBackend = preferredBackend === "gpu" ? "js" : "gpu";
+        if (!W || !origPixels) {
+          // No image yet: just reflect the preference.
+          setBadge(preferredBackend === "gpu" ? "webgpu" : jsBadgeKind());
+          return;
+        }
+        reconAfterReady = true; // re-apply current masks once the re-init lands
+        startBackendInit();
+      });
+
+      function onWorkerMessage(ev) {
+        const msg = ev.data;
+        if (msg.type === "ready") {
+          if (msg.id !== initId) return; // stale image
+          applyReady(msg.mags);
+        } else if (msg.type === "recon") {
+          if (msg.id !== jobId) return; // stale/killed job
+          imgCtx.putImageData(new ImageData(msg.pixels, W, H), 0, 0);
+          specInfo.textContent = `${W}x${H}`;
+        }
+      }
+
+      // Ask the active backend for a fresh inverse FFT of the current masks.
+      function reconstruct() {
+        if (!loaded) return;
+        const id = ++jobId;
+        specInfo.textContent = "computing...";
+        if (activeBackend === "gpu" && gpuFFT) {
+          // Masks are snapshotted lazily inside the job; a job that has been
+          // superseded (newer stroke/toggle bumped jobId) is skipped entirely,
+          // so stroke spam cannot stack full IFFTs on the GPU queue.
+          gpuFFT.reconstruct(
+            () => [mask[0].slice(), mask[1].slice(), mask[2].slice()],
+            outputMode,
+            () => id !== jobId
+          ).then((px) => {
+            if (!px || id !== jobId) return; // stale/killed job
+            imgCtx.putImageData(new ImageData(px, W, H), 0, 0);
+            specInfo.textContent = `${W}x${H}`;
+          }).catch((err) => gpuFail(err));
+        } else {
+          // Masks are structured-cloned by postMessage.
+          worker.postMessage({ type: "recon", id, mode: outputMode, masks: [mask[0], mask[1], mask[2]] });
+        }
+      }
+
+      // Kill any in-flight inverse FFT and drop its (now unwanted) result.
+      // GPU jobs can't be interrupted mid-dispatch but finish in milliseconds;
+      // the jobId gate guarantees their stale results are discarded.
+      function cancelReconstruct() {
+        jobId++;
+        if (activeBackend !== "gpu" && worker) worker.postMessage({ type: "cancel" });
+        if (loaded) specInfo.textContent = `${W}x${H}`;
+      }
+
+      // ---------- Image loading ----------
+      function loadImage(source) {
+        const img = new Image();
+        img.onload = () => {
+          setupFromImage(img);
+          if (source.startsWith("blob:")) URL.revokeObjectURL(source);
+        };
+        img.onerror = () => { if (source.startsWith("blob:")) URL.revokeObjectURL(source); };
+        img.src = source;
+      }
+
+      function setupFromImage(img) {
+        const ow = img.naturalWidth, oh = img.naturalHeight;
+        if (!ow || !oh) return;
+
+        // Full original resolution -- no cropping, scaling, or aspect distortion.
+        W = ow; H = oh;
+
+        // Flatten alpha onto white.
+        const work = document.createElement("canvas");
+        work.width = W; work.height = H;
+        const wctx = work.getContext("2d");
+        wctx.fillStyle = "#ffffff";
+        wctx.fillRect(0, 0, W, H);
+        wctx.drawImage(img, 0, 0, W, H);
+        // Retained for backend switches and GPU->worker fallback.
+        origPixels = wctx.getImageData(0, 0, W, H).data;
+
+        const n = W * H;
+        for (let c = 0; c < 3; c++) {
+          mag[c] = null;
+          mask[c] = new Float32Array(n).fill(1);
+        }
+        specImageData = specCtx.createImageData(W, H);
+
+        imageCanvas.width = W; imageCanvas.height = H;
+        specCanvas.width = W; specCanvas.height = H;
+        specOverlay.width = W; specOverlay.height = H;
+        imgCtx.drawImage(work, 0, 0); // show the (flattened) original right away
+        specCtx.clearRect(0, 0, W, H);
+
+        imagePlaceholder.classList.add("hidden");
+        specPlaceholder.classList.add("hidden");
+        imageCanvas.classList.remove("hidden");
+        specWrap.classList.remove("hidden");
+        imageInfo.textContent = `${ow}x${oh}`;
+
+        reconAfterReady = false; // fresh masks are identity; the original is already shown
+        startBackendInit();
+      }
+
+      // ---------- Rendering ----------
+      // Recompute + repaint only a region of the spectrum (display coords, inclusive).
+      function renderSpectrumRegion(x0, y0, x1, y1) {
+        if (!loaded) return;
+        x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0));
+        x1 = Math.min(W - 1, Math.ceil(x1)); y1 = Math.min(H - 1, Math.ceil(y1));
+        if (x0 > x1 || y0 > y1) return;
+        const px = specImageData.data;
+        const cw = W - (W >> 1), ch = H - (H >> 1); // display -> raw fftshift offsets
+        const single = channelMode === "all" ? -1 : { r: 0, g: 1, b: 2 }[channelMode];
+        const tr = single === 0 || single < 0 ? 1 : 0.28;
+        const tg = single === 1 || single < 0 ? 1 : 0.28;
+        const tb = single === 2 || single < 0 ? 1 : 0.28;
+        for (let y = y0; y <= y1; y++) {
+          const sy = ((y + ch) % H) * W; // display row -> raw row (fftshift)
+          let o = (y * W + x0) * 4;
+          let u = (x0 + cw) % W;         // raw column; ++/wrap beats a modulo per pixel
+          if (single < 0) {
+            const g0 = mag[0], g1 = mag[1], g2 = mag[2];
+            const m0 = mask[0], m1 = mask[1], m2 = mask[2];
+            for (let x = x0; x <= x1; x++) {
+              const i = sy + u;
+              px[o] = g0[i] * m0[i];
+              px[o + 1] = g1[i] * m1[i];
+              px[o + 2] = g2[i] * m2[i];
+              px[o + 3] = 255;
+              o += 4;
+              u++;
+              if (u === W) u = 0;
+            }
+          } else {
+            const gs = mag[single], ms = mask[single];
+            for (let x = x0; x <= x1; x++) {
+              const v = gs[sy + u] * ms[sy + u];
+              px[o] = v * tr;
+              px[o + 1] = v * tg;
+              px[o + 2] = v * tb;
+              px[o + 3] = 255;
+              o += 4;
+              u++;
+              if (u === W) u = 0;
+            }
+          }
+        }
+        specCtx.putImageData(specImageData, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+      }
+
+      function renderSpectrum() {
+        renderSpectrumRegion(0, 0, W - 1, H - 1);
+      }
+
+      // While painting, only the brush-touched regions (and their mirrors) are
+      // recomputed and repainted, batched per animation frame -- full-spectrum
+      // redraws on huge images would tank stroke framerate. Overlapping rects
+      // from fast pointermove bursts are merged so shared area repaints once.
+      let dirtyRects = [];
+      let flushQueued = false;
+      function queueDirty(x0, y0, x1, y1) {
+        let cur = [x0, y0, x1, y1];
+        // Union with any rect it intersects (repeat: the union may hit others).
+        let merged = true;
+        while (merged) {
+          merged = false;
+          for (let i = dirtyRects.length - 1; i >= 0; i--) {
+            const o = dirtyRects[i];
+            if (cur[0] <= o[2] && o[0] <= cur[2] && cur[1] <= o[3] && o[1] <= cur[3]) {
+              cur = [
+                Math.min(cur[0], o[0]), Math.min(cur[1], o[1]),
+                Math.max(cur[2], o[2]), Math.max(cur[3], o[3]),
+              ];
+              dirtyRects.splice(i, 1);
+              merged = true;
+            }
+          }
+        }
+        dirtyRects.push(cur);
+        if (!flushQueued) {
+          flushQueued = true;
+          requestAnimationFrame(() => {
+            flushQueued = false;
+            const rects = dirtyRects;
+            dirtyRects = [];
+            for (const r of rects) renderSpectrumRegion(r[0], r[1], r[2], r[3]);
+          });
+        }
+      }
+
+      // ---------- Painting ----------
+      function activeChannels() {
+        return channelMode === "all" ? [0, 1, 2] : [{ r: 0, g: 1, b: 2 }[channelMode]];
+      }
+
+      // The brush size slider is in CSS pixels; convert to spectrum (image) pixels
+      // based on how much the canvas is scaled down on screen.
+      function specScale() {
+        const rect = specCanvas.getBoundingClientRect();
+        return rect.width > 0 ? W / rect.width : 1;
+      }
+      const brushRadiusImagePx = () => brushRadius * specScale();
+
+      // (dx, dy) are display (fftshifted) coordinates; r is the radius in image pixels.
+      // Scanline circle fill: each row of the disc becomes at most two contiguous
+      // raw-space spans (fftshift wrap), written with TypedArray.fill (memset)
+      // instead of per-pixel loops -- big brushes would otherwise cost O(r^2)
+      // scattered writes x channels x mirror.
+      function stamp(dx, dy, r) {
+        const cw = W - (W >> 1), ch = H - (H >> 1);
+        const chans = activeChannels();
+        const val = brushValue;
+        const y0 = Math.max(0, Math.ceil(dy - r)), y1 = Math.min(H - 1, Math.floor(dy + r));
+        for (let y = y0; y <= y1; y++) {
+          const ddy = y - dy;
+          const half = Math.sqrt(r * r - ddy * ddy);
+          const x0 = Math.max(0, Math.ceil(dx - half));
+          const x1 = Math.min(W - 1, Math.floor(dx + half));
+          if (x0 > x1) continue;
+          const v = (y + ch) % H;   // raw row
+          const mv = (H - v) % H;   // conjugate-mirror raw row
+          // Display span [x0, x1] maps to raw u starting at (x0+cw)%W; it stays
+          // contiguous unless it wraps past W, so split into <= 2 segments.
+          const u0 = (x0 + cw) % W;
+          const len = x1 - x0 + 1;
+          const firstLen = Math.min(len, W - u0);
+          for (let seg = 0; seg < 2; seg++) {
+            let a, b; // inclusive raw span [a, b] in row v
+            if (seg === 0) { a = u0; b = u0 + firstLen - 1; }
+            else if (firstLen < len) { a = 0; b = len - firstLen - 1; }
+            else break;
+            const base = v * W, mbase = mv * W;
+            for (const c of chans) {
+              const m = mask[c];
+              m.fill(val, base + a, base + b + 1);
+              // Mirror of raw span [a, b] is {(W-u)%W}: [W-b, W-a], with u=0
+              // mapping onto itself at 0.
+              if (a === 0) {
+                m[mbase] = val;
+                if (b >= 1) m.fill(val, mbase + W - b, mbase + W);
+              } else {
+                m.fill(val, mbase + W - b, mbase + W - a + 1);
+              }
+            }
+          }
+        }
+      }
+
+      function strokeLine(x0, y0, x1, y1) {
+        const r = brushRadiusImagePx();
+        const dist = Math.hypot(x1 - x0, y1 - y0);
+        const steps = Math.max(1, Math.ceil(dist / Math.max(1, r * 0.5)));
+        for (let s = 0; s <= steps; s++) {
+          stamp(x0 + ((x1 - x0) * s) / steps, y0 + ((y1 - y0) * s) / steps, r);
+        }
+        // Dirty box of the segment, plus its point-reflected (conjugate) twin.
+        const bx0 = Math.min(x0, x1) - r - 1, bx1 = Math.max(x0, x1) + r + 1;
+        const by0 = Math.min(y0, y1) - r - 1, by1 = Math.max(y0, y1) + r + 1;
+        queueDirty(bx0, by0, bx1, by1);
+        queueDirty(W - bx1 - 1, H - by1 - 1, W - bx0 + 1, H - by0 + 1);
+      }
+
+      function canvasCoords(e) {
+        const rect = specCanvas.getBoundingClientRect();
+        return [
+          ((e.clientX - rect.left) / rect.width) * W,
+          ((e.clientY - rect.top) / rect.height) * H,
+        ];
+      }
+
+      let painting = false;
+      let lastX = 0, lastY = 0;
+
+      specCanvas.addEventListener("pointerdown", (e) => {
+        if (!loaded) return;
+        e.preventDefault();
+        cancelReconstruct(); // drawing kills any in-flight inverse FFT
+        specCanvas.setPointerCapture(e.pointerId);
+        painting = true;
+        [lastX, lastY] = canvasCoords(e);
+        strokeLine(lastX, lastY, lastX, lastY);
+      });
+
+      specCanvas.addEventListener("pointermove", (e) => {
+        if (!loaded) return;
+        const [x, y] = canvasCoords(e);
+        drawBrushCursor(x, y);
+        if (!painting) return;
+        strokeLine(lastX, lastY, x, y);
+        lastX = x; lastY = y;
+      });
+
+      function endStroke() {
+        if (!painting) return;
+        painting = false;
+        reconstruct(); // dirty spectrum regions were already repainted incrementally
+      }
+      specCanvas.addEventListener("pointerup", endStroke);
+      specCanvas.addEventListener("pointercancel", endStroke);
+      specCanvas.addEventListener("pointerleave", clearBrushCursor);
+
+      let cursorClearRect = null; // only clear where the cursor was last drawn
+      function clearBrushCursor() {
+        if (cursorClearRect) {
+          ovCtx.clearRect(cursorClearRect[0], cursorClearRect[1], cursorClearRect[2], cursorClearRect[3]);
+          cursorClearRect = null;
+        }
+      }
+
+      function drawBrushCursor(x, y) {
+        const scale = specScale();
+        const r = brushRadius * scale;
+        const lw = Math.max(1, 1.5 * scale); // ~1.5 CSS px on screen
+        clearBrushCursor();
+        const pad = r + 2 * lw + 2;
+        cursorClearRect = [x - pad, y - pad, pad * 2, pad * 2];
+        ovCtx.beginPath();
+        ovCtx.arc(x, y, r, 0, Math.PI * 2);
+        ovCtx.strokeStyle = "rgba(244, 244, 245, 0.9)"; // zinc-100
+        ovCtx.lineWidth = lw;
+        ovCtx.stroke();
+        ovCtx.beginPath();
+        ovCtx.arc(x, y, r, 0, Math.PI * 2);
+        ovCtx.strokeStyle = "rgba(24, 24, 27, 0.6)"; // zinc-900 halo
+        ovCtx.lineWidth = lw * 3;
+        ovCtx.globalCompositeOperation = "destination-over";
+        ovCtx.stroke();
+        ovCtx.globalCompositeOperation = "source-over";
+      }
+
+      // ---------- Lightbox (image panel only) ----------
+      const lightbox = document.getElementById("lightbox");
+      const lightboxCanvas = document.getElementById("lightboxCanvas");
+
+      imageCanvas.addEventListener("click", () => {
+        if (!W || !H) return;
+        lightboxCanvas.width = W;
+        lightboxCanvas.height = H;
+        lightboxCanvas.getContext("2d").drawImage(imageCanvas, 0, 0);
+        lightbox.classList.remove("hidden");
+        lightbox.classList.add("flex");
+      });
+
+      function closeLightbox() {
+        if (lightbox.classList.contains("hidden")) return;
+        lightbox.classList.add("hidden");
+        lightbox.classList.remove("flex");
+        lightboxCanvas.width = lightboxCanvas.height = 0; // release the full-res copy
+      }
+      // Clicking the enlarged image or the backdrop closes it.
+      lightbox.addEventListener("click", closeLightbox);
+      window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
+
+      // ---------- Controls ----------
+      const CH_ACTIVE = {
+        all: ["bg-zinc-200", "text-zinc-900"],
+        r: ["bg-red-500/90", "text-zinc-950"],
+        g: ["bg-green-500/90", "text-zinc-950"],
+        b: ["bg-blue-500/90", "text-zinc-950"],
+      };
+      const CH_IDLE = ["bg-zinc-900", "text-zinc-400", "hover:bg-zinc-800", "hover:text-zinc-200"];
+
+      function refreshChannelButtons() {
+        channelGroup.querySelectorAll(".ch-btn").forEach((btn) => {
+          const ch = btn.dataset.ch;
+          btn.classList.remove(...CH_IDLE, ...CH_ACTIVE.all, ...CH_ACTIVE.r, ...CH_ACTIVE.g, ...CH_ACTIVE.b);
+          btn.classList.add(...(ch === channelMode ? CH_ACTIVE[ch] : CH_IDLE));
+        });
+      }
+
+      channelGroup.addEventListener("click", (e) => {
+        const btn = e.target.closest(".ch-btn");
+        if (!btn) return;
+        channelMode = btn.dataset.ch;
+        refreshChannelButtons();
+        if (loaded) renderSpectrum();
+      });
+
+      function refreshOutputButtons() {
+        outputGroup.querySelectorAll(".out-btn").forEach((btn) => {
+          btn.classList.remove(...CH_IDLE, ...CH_ACTIVE.all);
+          btn.classList.add(...(btn.dataset.out === outputMode ? CH_ACTIVE.all : CH_IDLE));
+        });
+      }
+
+      outputGroup.addEventListener("click", (e) => {
+        const btn = e.target.closest(".out-btn");
+        if (!btn || btn.dataset.out === outputMode) return;
+        outputMode = btn.dataset.out;
+        refreshOutputButtons();
+        // Recompute with the new mapping. reconstruct() bumps jobId, which both
+        // kills any in-flight inverse FFT at its next checkpoint and drops its
+        // already-posted result; if the forward FFT hasn't finished (!loaded)
+        // nothing is sent and the first recon simply uses the new mode. While
+        // painting, the stroke-end recon picks up the mode instead.
+        if (loaded && !painting) reconstruct();
+      });
+
+      brushSizeEl.addEventListener("input", () => {
+        brushRadius = +brushSizeEl.value;
+        brushSizeLabel.textContent = brushSizeEl.value + "px";
+      });
+
+      brushValueEl.addEventListener("input", () => {
+        brushValue = +brushValueEl.value;
+        brushValueLabel.textContent = brushValue.toFixed(2) + "x";
+      });
+
+      resetBtn.addEventListener("click", () => {
+        if (!loaded) return;
+        for (let c = 0; c < 3; c++) mask[c].fill(1);
+        renderSpectrum();
+        reconstruct();
+      });
+
+      // ---------- Input sources ----------
+      fileInput.addEventListener("change", () => {
+        const f = fileInput.files && fileInput.files[0];
+        if (f && f.type.startsWith("image/")) loadImage(URL.createObjectURL(f));
+        fileInput.value = "";
+      });
+
+      window.addEventListener("paste", (e) => {
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (const item of items) {
+          if (item.type.startsWith("image/")) {
+            const f = item.getAsFile();
+            if (f) {
+              e.preventDefault();
+              loadImage(URL.createObjectURL(f));
+              return;
+            }
+          }
+        }
+      });
+
+      window.addEventListener("dragover", (e) => e.preventDefault());
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f && f.type.startsWith("image/")) loadImage(URL.createObjectURL(f));
+      });
+
+      refreshChannelButtons();
+      refreshOutputButtons();
+    </script>
+  </body>
+</html>

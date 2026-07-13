@@ -9,4 +9,5 @@ My slop vibe coded websites.
 [Perlin WebGPU](https://lagpixellol.github.io/slop-sites/perlin) \
 [Gradient Generator](https://lagpixellol.github.io/slop-sites/gradient) \
 [Noise](https://lagpixellol.github.io/slop-sites/noise) \
-[Terminal Image Viewer](https://lagpixellol.github.io/slop-sites/tiv)
+[Terminal Image Viewer](https://lagpixellol.github.io/slop-sites/tiv) \
+[Fourier Image Editor](https://lagpixellol.github.io/slop-sites/fourier)
