@@ -1,0 +1,1492 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>VideoGen - OpenRouter Video Generation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Prevent textarea resize handle */
+    textarea#prompt { resize: none; }
+    #resultVideo {
+      max-height: min(70vh, 600px);
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <header class="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/40">
+    <div class="mx-auto max-w-5xl px-4 py-4">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="text-xl font-semibold text-zinc-100">VideoGen - OpenRouter Video Generation</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-6">
+    <!-- API Key Card -->
+    <section class="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+      <div class="mb-3">
+        <h2 class="text-lg font-semibold text-zinc-100">API Key</h2>
+        <p class="text-sm text-zinc-400">
+          Your key is stored in your browser localStorage and used only for requests from this page. It auto-saves as you type.
+        </p>
+      </div>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="flex-1">
+          <label for="apiKey" class="mb-1 block text-sm text-zinc-300">OpenRouter API Key</label>
+          <div class="flex gap-2">
+            <input
+              id="apiKey"
+              type="password"
+              placeholder="sk-or-..."
+              class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+              autocomplete="off"
+            />
+            <button id="toggleKeyVisibility" class="h-10 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm hover:bg-zinc-700">
+              Show
+            </button>
+            <button id="clearKeyBtn" class="h-10 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm hover:bg-zinc-700">
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Create Video Form -->
+    <section class="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-zinc-100">Create Video</h2>
+        <div class="text-xs text-zinc-400">POST /api/v1/videos</div>
+      </div>
+
+      <form id="createForm" novalidate class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label for="model" class="mb-1 block text-sm text-zinc-300">Model</label>
+          <select
+            id="model"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 focus:border-zinc-500 focus:outline-none"
+          >
+            <option value="bytedance/seedance-2.5">bytedance/seedance-2.5</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="resolution" class="mb-1 block text-sm text-zinc-300">Resolution</label>
+          <select
+            id="resolution"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 focus:border-zinc-500 focus:outline-none"
+          >
+            <option value="480p" selected>480p</option>
+            <option value="720p">720p</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="aspectRatio" class="mb-1 block text-sm text-zinc-300">Aspect Ratio</label>
+          <select
+            id="aspectRatio"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 focus:border-zinc-500 focus:outline-none"
+          >
+            <!-- options injected dynamically based on resolution -->
+          </select>
+        </div>
+
+        <div>
+          <label for="seconds" class="mb-1 block text-sm text-zinc-300">Duration (seconds, 4-30)</label>
+          <input
+            id="seconds"
+            type="number"
+            min="4"
+            max="30"
+            step="1"
+            value="4"
+            class="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+          />
+        </div>
+
+        <div class="md:col-span-2">
+          <label for="prompt" class="mb-1 block text-sm text-zinc-300">Prompt</label>
+          <textarea
+            id="prompt"
+            class="h-28 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:border-zinc-500 focus:outline-none"
+            placeholder="Describe the video to generate. Example: A calico cat playing a piano on stage"
+            required
+          ></textarea>
+        </div>
+
+        <!-- Image inputs: start/end frames and asset references -->
+        <div class="md:col-span-2">
+          <label class="mb-2 block text-sm text-zinc-300">Images (optional)</label>
+          <div id="imagesArea">
+            <!-- Upload zone and pending image share one row -->
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+              <div id="refDrop"
+                   class="flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 bg-zinc-900 px-4 py-6 text-center hover:border-zinc-500">
+                <div class="text-sm text-zinc-300">Click to choose or paste (Ctrl+V) an image anywhere</div>
+                <div class="text-xs text-zinc-500">
+                  JPEG, PNG, WEBP. Transparency is flattened onto white on upload.
+                  Start/end frames are center-cropped (no stretch) and Lanczos-resized to the output size;
+                  asset references are sent at original size.
+                </div>
+                <input id="refFile" type="file" accept="image/*" class="hidden" />
+              </div>
+
+              <!-- Pending image: decide where it goes (always visible so the
+                   upload area keeps a stable width) -->
+              <div id="pendingWrap" class="flex shrink-0 items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+                <div class="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded border border-zinc-800 bg-black">
+                  <img id="pendingImg" alt="Pending image" class="hidden max-h-full max-w-full object-contain" />
+                  <div id="pendingEmpty" class="px-2 text-center text-xs text-zinc-600">No pending image</div>
+                  <button id="pendingDeleteBtn" type="button" title="Remove"
+                          class="absolute right-1 top-1 flex hidden h-5 w-5 items-center justify-center rounded bg-black/60 text-zinc-300 transition-colors duration-150 hover:bg-red-600/80 hover:text-white">
+                    <svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                      <path d="M6 6l12 12M18 6L6 18"></path>
+                    </svg>
+                  </button>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <button id="setStartBtn" type="button" disabled
+                          class="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    Set as start frame
+                  </button>
+                  <button id="setEndBtn" type="button" disabled
+                          class="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    Set as end frame
+                  </button>
+                  <button id="addAssetBtn" type="button" disabled
+                          class="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-left text-xs hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    Add to asset references (0/50)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assigned images -->
+            <div id="assignedWrap" class="mt-4 hidden rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <div class="mb-2 text-xs text-zinc-400">Start frame (cropped to output size)</div>
+                  <div id="startSlot" class="flex min-h-24 items-center"></div>
+                </div>
+                <div>
+                  <div class="mb-2 text-xs text-zinc-400">End frame (cropped to output size, requires a start frame)</div>
+                  <div id="endSlot" class="flex min-h-24 items-center"></div>
+                </div>
+              </div>
+              <div class="mt-4">
+                <div class="mb-2 text-xs text-zinc-400">
+                  Asset references (<span id="assetCount">0</span>/50, sent at original size)
+                </div>
+                <div id="assetGrid" class="flex flex-wrap gap-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-2 flex items-center gap-3">
+          <button
+            id="createBtn"
+            type="submit"
+            class="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <span class="relative inline-flex h-4 w-4 items-center justify-center">
+              <!-- outer circle shown always -->
+              <svg id="spinnerOuter" class="h-4 w-4 text-zinc-300" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" class="opacity-50"></circle>
+              </svg>
+              <!-- inner circle only when generating -->
+              <svg id="spinnerInner" class="absolute inset-0 hidden h-4 w-4 text-zinc-100" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+              </svg>
+            </span>
+            <span>Generate</span>
+          </button>
+
+          <button
+            id="cancelBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled
+          >
+            Stop Polling
+          </button>
+
+          <div id="costEstimate" class="group relative ml-auto cursor-help text-xs text-zinc-400">
+            <span id="costEstimateText">Est. cost: N/A</span>
+            <div id="costBreakdown"
+                 class="pointer-events-none absolute bottom-full right-0 z-10 mb-2 hidden w-72 rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-left text-xs text-zinc-300 shadow-lg group-hover:block">
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Status + Output -->
+    <section class="flex flex-col gap-6">
+      <!-- Status panel -->
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-zinc-100">Job Status</h3>
+          <div class="text-xs text-zinc-400">GET /api/v1/videos/{id}</div>
+        </div>
+
+        <dl class="grid grid-cols-3 gap-3 text-sm">
+          <div class="col-span-3">
+            <dt class="text-zinc-400">Job ID</dt>
+            <dd id="statusId" class="truncate font-mono text-zinc-200">N/A</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">Status</dt>
+            <dd id="statusText" class="font-medium text-zinc-200">N/A</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">Generation ID</dt>
+            <dd id="statusGenId" class="truncate font-mono text-zinc-200">N/A</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">Cost (USD)</dt>
+            <dd id="statusCost" class="text-zinc-200">N/A</dd>
+          </div>
+        </dl>
+
+        <div class="mt-4">
+          <details class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+            <summary class="cursor-pointer text-sm text-zinc-300">Last job JSON</summary>
+            <pre id="lastJobJson" class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-zinc-950 p-3 text-xs text-zinc-200">-</pre>
+          </details>
+        </div>
+      </div>
+
+      <!-- Output panel -->
+      <div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-zinc-100">Output</h3>
+          <div class="text-xs text-zinc-400">/api/v1/videos/{id}/content?index=0</div>
+        </div>
+
+        <!-- Error box -->
+        <div id="errorBox" class="mb-4 hidden rounded-lg border border-red-900/50 bg-red-950/40 p-3">
+          <div class="mb-2 font-medium text-red-200" id="errorTitle">Error</div>
+          <div class="text-sm text-red-200/90" id="errorMessage"></div>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-sm text-red-300">Raw error payload</summary>
+            <pre id="errorRaw" class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-zinc-950 p-3 text-xs text-red-200"></pre>
+          </details>
+        </div>
+
+        <!-- Video -->
+        <div id="videoWrap" class="hidden">
+          <video id="resultVideo" class="w-full rounded-lg border border-zinc-800 bg-black" controls preload="metadata" playsinline></video>
+          <div class="mt-3 flex items-center gap-2">
+            <a id="downloadLink" class="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700" download="video.mp4">Download MP4</a>
+            <button id="resetBtn" class="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800">Reset</button>
+          </div>
+        </div>
+
+        <div id="waitingMsg" class="text-sm text-zinc-400">No video yet. Create one to begin.</div>
+      </div>
+    </section>
+
+    <!-- Footer note -->
+    <p class="mt-6 text-center text-xs text-zinc-500">
+      This page submits an async job to the OpenRouter video generation API, polls it until completion, then downloads the MP4 and shows it inline. Video generation can take from 30 seconds to several minutes.
+    </p>
+  </main>
+
+  <script>
+    // -----------------------------
+    // Config and DOM refs
+    // -----------------------------
+    const API_BASE = "https://openrouter.ai/api/v1";
+    const MODEL_ID = "bytedance/seedance-2.5";
+
+    // OpenRouter recommends polling roughly every 30s; we start faster and back off.
+    const POLL_BASE_INTERVAL = 5000; // ideal spacing between polls, in milliseconds
+    const POLL_MIN_INTERVAL = 2000;
+    const POLL_MAX_INTERVAL = 30000;
+    const POLL_PER_TICK_GROWTH = 2000;
+    const POLL_TIMEOUT_MS = 15000;
+
+    // bytedance/seedance-2.5 capabilities, verified against the live API:
+    // - resolutions: 480p, 720p only (1080p/2K/4K submits return
+    //   HTTP 400 "Supported resolutions: 480p, 720p")
+    // - aspect_ratios: 16:9, 4:3, 1:1, 3:4, 9:16, 21:9 (9:21 is rejected
+    //   by the upstream provider with an InvalidParameter error)
+    // - durations: 4..30 seconds
+    // - frame_images: first_frame, last_frame
+    // - generate_audio: yes (always on; audio costs nothing extra, verified
+    //   $0.415481 with vs without at 480p 4s)
+    const DURATION_MIN = 4;
+    const DURATION_MAX = 30;
+
+    // Pricing, verified against real generations:
+    // video_tokens = W * H * (24 fps * duration + 1) / 1024, at $0.0000107
+    // per token. Verified free: audio on/off, frame images (first/last),
+    // and asset reference images (1 and 5 refs all billed identically).
+    // Measured examples: 854x480 4s = $0.42, 1280x720 4s = $0.93.
+    const PRICE_PER_VIDEO_TOKEN = 0.0000107;
+    const PRICE_FPS = 24;
+
+    // Exact pixel dimensions per resolution + aspect ratio (from the model's
+    // supported_sizes), used to pad the frame image locally.
+    const SIZE_MAP = {
+      "480p": {
+        "16:9": "854x480",
+        "4:3": "752x560",
+        "1:1": "640x640",
+        "3:4": "560x752",
+        "9:16": "480x854",
+        "21:9": "992x432",
+      },
+      "720p": {
+        "16:9": "1280x720",
+        "4:3": "1112x834",
+        "1:1": "960x960",
+        "3:4": "834x1112",
+        "9:16": "720x1280",
+        "21:9": "1470x630",
+      },
+    };
+
+    const ASPECT_LABELS = {
+      "16:9": "Landscape 16:9",
+      "4:3": "Landscape 4:3",
+      "1:1": "Square 1:1",
+      "3:4": "Portrait 3:4",
+      "9:16": "Portrait 9:16",
+      "21:9": "Ultra-wide 21:9",
+    };
+
+    const els = {
+      // key
+      apiKey: document.getElementById("apiKey"),
+      toggleKeyVisibility: document.getElementById("toggleKeyVisibility"),
+      clearKeyBtn: document.getElementById("clearKeyBtn"),
+
+      // form
+      createForm: document.getElementById("createForm"),
+      createBtn: document.getElementById("createBtn"),
+      spinnerOuter: document.getElementById("spinnerOuter"),
+      spinnerInner: document.getElementById("spinnerInner"),
+      cancelBtn: document.getElementById("cancelBtn"),
+      costEstimate: document.getElementById("costEstimate"),
+      costEstimateText: document.getElementById("costEstimateText"),
+      costBreakdown: document.getElementById("costBreakdown"),
+
+      // fields
+      model: document.getElementById("model"),
+      prompt: document.getElementById("prompt"),
+      resolution: document.getElementById("resolution"),
+      aspectRatio: document.getElementById("aspectRatio"),
+      seconds: document.getElementById("seconds"),
+
+      // images
+      imagesArea: document.getElementById("imagesArea"),
+      refDrop: document.getElementById("refDrop"),
+      refFile: document.getElementById("refFile"),
+      pendingWrap: document.getElementById("pendingWrap"),
+      pendingImg: document.getElementById("pendingImg"),
+      pendingEmpty: document.getElementById("pendingEmpty"),
+      pendingDeleteBtn: document.getElementById("pendingDeleteBtn"),
+      setStartBtn: document.getElementById("setStartBtn"),
+      setEndBtn: document.getElementById("setEndBtn"),
+      addAssetBtn: document.getElementById("addAssetBtn"),
+      assignedWrap: document.getElementById("assignedWrap"),
+      startSlot: document.getElementById("startSlot"),
+      endSlot: document.getElementById("endSlot"),
+      assetGrid: document.getElementById("assetGrid"),
+      assetCount: document.getElementById("assetCount"),
+
+      // status
+      statusId: document.getElementById("statusId"),
+      statusText: document.getElementById("statusText"),
+      statusGenId: document.getElementById("statusGenId"),
+      statusCost: document.getElementById("statusCost"),
+      lastJobJson: document.getElementById("lastJobJson"),
+
+      // output
+      errorBox: document.getElementById("errorBox"),
+      errorTitle: document.getElementById("errorTitle"),
+      errorMessage: document.getElementById("errorMessage"),
+      errorRaw: document.getElementById("errorRaw"),
+
+      videoWrap: document.getElementById("videoWrap"),
+      resultVideo: document.getElementById("resultVideo"),
+      downloadLink: document.getElementById("downloadLink"),
+      resetBtn: document.getElementById("resetBtn"),
+
+      waitingMsg: document.getElementById("waitingMsg"),
+    };
+
+    let pollState = null;
+    let createAbort = null; // AbortController for an in-flight submit request
+    let currentJobId = null;
+    let lastStatus = null;
+    let videoDataUrl = null;
+
+    // image state
+    // Each item: { blob, url, width, height } where blob is the original
+    // image flattened onto a white background (PNG), url is an object URL of
+    // that blob for display. Frames additionally carry croppedUrl: an object
+    // URL of the crop+resize preview at the current output size.
+    const MAX_ASSET_REFS = 50;
+    let pendingImage = null; // replaced when a new image is pasted/chosen
+    let firstFrame = null;   // single slot, replaced on assign
+    let lastFrame = null;    // single slot, replaced on assign
+    let assetRefs = [];      // appended on assign, up to MAX_ASSET_REFS
+
+    // -----------------------------
+    // Local Storage helpers (only API key)
+    // -----------------------------
+    const KEY_STORAGE = "openrouter_api_key";
+
+    function loadKey() {
+      const saved = localStorage.getItem(KEY_STORAGE);
+      if (saved) els.apiKey.value = saved;
+    }
+
+    function saveKeyAuto() {
+      const v = (els.apiKey.value || "").trim();
+      if (v) {
+        localStorage.setItem(KEY_STORAGE, v);
+      } else {
+        localStorage.removeItem(KEY_STORAGE);
+      }
+    }
+
+    function clearKey() {
+      localStorage.removeItem(KEY_STORAGE);
+      els.apiKey.value = "";
+    }
+
+    // -----------------------------
+    // UI helpers
+    // -----------------------------
+    function setLoading(isLoading) {
+      els.createBtn.disabled = isLoading;
+      els.cancelBtn.disabled = isLoading ? false : (currentJobId ? false : true);
+      // spinner behavior: outer circle always visible; inner circle only during loading
+      els.spinnerInner.classList.toggle("hidden", !isLoading);
+      els.spinnerInner.classList.toggle("animate-spin", isLoading);
+      // All form fields (model, prompt, resolution, ratio, duration, images)
+      // stay editable during generation; they are only read at submit time.
+      // Only the Generate button locks to prevent double submission.
+    }
+
+    function setStatus(job) {
+      if (!job) return;
+      els.statusId.textContent = job.id || "N/A";
+      els.statusText.textContent = job.status || "N/A";
+      els.statusGenId.textContent = job.generation_id || "N/A";
+
+      if (job.usage && typeof job.usage.cost === "number") {
+        els.statusCost.textContent = "$" + job.usage.cost.toFixed(4);
+      } else {
+        els.statusCost.textContent = "N/A";
+      }
+
+      els.lastJobJson.textContent = JSON.stringify(job, null, 2);
+    }
+
+    function clearOutput() {
+      // video
+      els.videoWrap.classList.add("hidden");
+      els.resultVideo.removeAttribute("src");
+      els.downloadLink.removeAttribute("href");
+      videoDataUrl = null;
+
+      // waiting
+      els.waitingMsg.classList.remove("hidden");
+    }
+
+    function clearError() {
+      els.errorBox.classList.add("hidden");
+      els.errorTitle.textContent = "";
+      els.errorMessage.textContent = "";
+      els.errorRaw.textContent = "";
+    }
+
+    function showError(title, message, raw) {
+      els.errorBox.classList.remove("hidden");
+      els.errorTitle.textContent = title || "Error";
+      els.errorMessage.textContent = message || "";
+      els.errorRaw.textContent = raw || "";
+    }
+
+    function ensureApiKey() {
+      const key = (els.apiKey.value.trim() || localStorage.getItem(KEY_STORAGE) || "").trim();
+      if (!key) {
+        showError("Missing API key", "Please enter your OpenRouter API key in the field above.");
+        return null;
+      }
+      return key;
+    }
+
+    function currentSizeStr() {
+      const res = els.resolution.value;
+      const ar = els.aspectRatio.value;
+      return (SIZE_MAP[res] || {})[ar] || null;
+    }
+
+    function parseSizeStr(sizeStr) {
+      const m = /^(\d+)x(\d+)$/.exec(sizeStr || "");
+      if (!m) return null;
+      return { w: parseInt(m[1], 10), h: parseInt(m[2], 10) };
+    }
+
+    // -----------------------------
+    // Image processing
+    // -----------------------------
+    async function decodeImageFromFile(file) {
+      // Prefer createImageBitmap when available for performance
+      try {
+        if ("createImageBitmap" in window) {
+          const bmp = await createImageBitmap(file);
+          return { width: bmp.width, height: bmp.height, bitmap: bmp };
+        }
+      } catch {}
+      // Fallback to HTMLImageElement
+      const dataUrl = await fileToDataURL(file);
+      const img = await loadImage(dataUrl);
+      return { width: img.naturalWidth, height: img.naturalHeight, imageEl: img };
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = (e) => reject(e);
+        fr.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+        img.src = src;
+      });
+    }
+
+    function canvasToPngBlob(canvas) {
+      return new Promise((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/png")
+      );
+    }
+
+    // Flatten transparency onto a white background at original size.
+    // Done once at upload/paste time; the result is "the original" from
+    // then on.
+    async function flattenToWhite(file) {
+      const decoded = await decodeImageFromFile(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = decoded.width;
+      canvas.height = decoded.height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, decoded.width, decoded.height);
+      ctx.drawImage(decoded.bitmap || decoded.imageEl, 0, 0);
+      const blob = await canvasToPngBlob(canvas);
+      return {
+        blob,
+        url: URL.createObjectURL(blob),
+        width: decoded.width,
+        height: decoded.height,
+      };
+    }
+
+    // Lanczos-3 separable resampler operating on opaque RGBA pixel data.
+    function lanczosResample(src, srcW, srcH, dstW, dstH) {
+      const A = 3;
+      function kernel(x) {
+        x = Math.abs(x);
+        if (x >= A) return 0;
+        if (x < 1e-8) return 1;
+        const px = Math.PI * x;
+        return (A * Math.sin(px) * Math.sin(px / A)) / (px * px);
+      }
+      function buildWeights(srcN, dstN) {
+        const scale = dstN / srcN;
+        const fscale = Math.max(1, 1 / scale); // widen filter when downscaling
+        const support = A * fscale;
+        const rows = [];
+        for (let i = 0; i < dstN; i++) {
+          const center = (i + 0.5) / scale - 0.5;
+          const lo = Math.max(0, Math.ceil(center - support));
+          const hi = Math.min(srcN - 1, Math.floor(center + support));
+          const w = new Float32Array(hi - lo + 1);
+          let sum = 0;
+          for (let j = lo; j <= hi; j++) {
+            const v = kernel((j - center) / fscale);
+            w[j - lo] = v;
+            sum += v;
+          }
+          for (let k = 0; k < w.length; k++) w[k] /= sum;
+          rows.push({ lo, w });
+        }
+        return rows;
+      }
+
+      const wx = buildWeights(srcW, dstW);
+      const wy = buildWeights(srcH, dstH);
+
+      // Horizontal pass: srcW x srcH -> dstW x srcH (RGB in float)
+      const tmp = new Float32Array(dstW * srcH * 3);
+      for (let y = 0; y < srcH; y++) {
+        const rowOff = y * srcW * 4;
+        for (let x = 0; x < dstW; x++) {
+          const { lo, w } = wx[x];
+          let r = 0, g = 0, b = 0;
+          for (let k = 0; k < w.length; k++) {
+            const p = rowOff + (lo + k) * 4;
+            const wv = w[k];
+            r += src[p] * wv;
+            g += src[p + 1] * wv;
+            b += src[p + 2] * wv;
+          }
+          const t = (y * dstW + x) * 3;
+          tmp[t] = r;
+          tmp[t + 1] = g;
+          tmp[t + 2] = b;
+        }
+      }
+
+      // Vertical pass: dstW x srcH -> dstW x dstH
+      const out = new Uint8ClampedArray(dstW * dstH * 4);
+      for (let y = 0; y < dstH; y++) {
+        const { lo, w } = wy[y];
+        for (let x = 0; x < dstW; x++) {
+          let r = 0, g = 0, b = 0;
+          for (let k = 0; k < w.length; k++) {
+            const t = ((lo + k) * dstW + x) * 3;
+            const wv = w[k];
+            r += tmp[t] * wv;
+            g += tmp[t + 1] * wv;
+            b += tmp[t + 2] * wv;
+          }
+          const o = (y * dstW + x) * 4;
+          out[o] = r;
+          out[o + 1] = g;
+          out[o + 2] = b;
+          out[o + 3] = 255;
+        }
+      }
+      return out;
+    }
+
+    // Center-crop (cover, never stretch) to the target aspect ratio, then
+    // Lanczos-resize to exactly targetW x targetH.
+    async function cropResizeToTarget(blob, targetW, targetH) {
+      const decoded = await decodeImageFromFile(blob);
+      const srcW = decoded.width;
+      const srcH = decoded.height;
+
+      const scale = Math.max(targetW / srcW, targetH / srcH);
+      const cropW = Math.min(srcW, Math.max(1, Math.round(targetW / scale)));
+      const cropH = Math.min(srcH, Math.max(1, Math.round(targetH / scale)));
+      const sx = Math.floor((srcW - cropW) / 2);
+      const sy = Math.floor((srcH - cropH) / 2);
+
+      // Extract the cropped region at source resolution
+      const cropCanvas = document.createElement("canvas");
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext("2d");
+      cropCtx.drawImage(decoded.bitmap || decoded.imageEl, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
+      const srcData = cropCtx.getImageData(0, 0, cropW, cropH).data;
+
+      // High-quality resample to the exact target size
+      const outData = lanczosResample(srcData, cropW, cropH, targetW, targetH);
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = targetW;
+      outCanvas.height = targetH;
+      outCanvas.getContext("2d").putImageData(new ImageData(outData, targetW, targetH), 0, 0);
+
+      const outBlob = await canvasToPngBlob(outCanvas);
+      const dataUrl = await fileToDataURL(outBlob);
+      return { blob: outBlob, dataUrl };
+    }
+
+    // -----------------------------
+    // Image intake, assignment, and rendering
+    // -----------------------------
+    function releaseItem(item) {
+      if (!item) return;
+      if (item.url) URL.revokeObjectURL(item.url);
+      if (item.croppedUrl) URL.revokeObjectURL(item.croppedUrl);
+    }
+
+    // Reflect pending image state: the pending box is always visible so the
+    // upload area keeps a stable width; contents and buttons swap instead.
+    function updatePendingUI() {
+      const has = !!pendingImage;
+      els.pendingImg.classList.toggle("hidden", !has);
+      els.pendingEmpty.classList.toggle("hidden", has);
+      els.pendingDeleteBtn.classList.toggle("hidden", !has);
+      els.setStartBtn.disabled = !has;
+      els.setEndBtn.disabled = !has;
+      els.addAssetBtn.disabled = !has || assetRefs.length >= MAX_ASSET_REFS;
+    }
+
+    async function intakeImage(file) {
+      if (!file || !file.type.startsWith("image/")) {
+        showError("Invalid file", "Please choose an image file (PNG, JPEG, or WEBP).");
+        return;
+      }
+      try {
+        const flat = await flattenToWhite(file);
+        // Replace any existing pending image
+        releaseItem(pendingImage);
+        pendingImage = flat;
+        els.pendingImg.src = flat.url;
+        updatePendingUI();
+      } catch (e) {
+        showError("Image processing failed", String(e));
+      }
+    }
+
+    function clearPending() {
+      releaseItem(pendingImage);
+      pendingImage = null;
+      els.pendingImg.removeAttribute("src");
+      updatePendingUI();
+    }
+
+    // Recompute the crop+resize preview for a frame slot at the current
+    // output size (called on assignment and when resolution/ratio changes).
+    async function refreshFramePreview(item) {
+      if (!item) return;
+      const parsed = parseSizeStr(currentSizeStr());
+      if (!parsed) return;
+      try {
+        const processed = await cropResizeToTarget(item.blob, parsed.w, parsed.h);
+        if (item.croppedUrl) URL.revokeObjectURL(item.croppedUrl);
+        item.croppedUrl = URL.createObjectURL(processed.blob);
+      } catch {
+        // preview failure is non-fatal; submit will retry the processing
+      }
+    }
+
+    async function refreshAllFramePreviews() {
+      await Promise.all([refreshFramePreview(firstFrame), refreshFramePreview(lastFrame)]);
+      renderAssigned();
+    }
+
+    async function assignPending(target) {
+      if (!pendingImage) return;
+      if (target === "asset") {
+        if (assetRefs.length >= MAX_ASSET_REFS) {
+          showError("Limit reached", "At most " + MAX_ASSET_REFS + " asset reference images are allowed.");
+          return;
+        }
+        assetRefs.push(pendingImage); // append
+        pendingImage = null;
+      } else {
+        // start/end frame: replace if present
+        const item = pendingImage;
+        pendingImage = null;
+        if (target === "start") {
+          releaseItem(firstFrame);
+          firstFrame = item;
+          await refreshFramePreview(firstFrame);
+        } else {
+          releaseItem(lastFrame);
+          lastFrame = item;
+          await refreshFramePreview(lastFrame);
+        }
+      }
+      els.pendingImg.removeAttribute("src");
+      updatePendingUI();
+      renderAssigned();
+    }
+
+    // Square 1:1 display box: contain-fit with black padding, never cropped.
+    // SVG delete button overlaid inside the top-right corner of the box.
+    const DELETE_ICON_SVG =
+      '<svg viewBox="0 0 24 24" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">' +
+      '<path d="M6 6l12 12M18 6L6 18"></path></svg>';
+
+    function makeThumb(url, onDelete) {
+      const box = document.createElement("div");
+      box.className = "relative flex h-24 w-24 items-center justify-center overflow-hidden rounded border border-zinc-800 bg-black";
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = "Image";
+      img.className = "max-h-full max-w-full object-contain";
+      box.appendChild(img);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.title = "Remove";
+      del.className = "absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded bg-black/60 text-zinc-300 transition-colors duration-150 hover:bg-red-600/80 hover:text-white";
+      del.innerHTML = DELETE_ICON_SVG;
+      del.addEventListener("click", (e) => {
+        e.preventDefault();
+        onDelete();
+      });
+      box.appendChild(del);
+      return box;
+    }
+
+    function renderAssigned() {
+      // start frame slot
+      els.startSlot.innerHTML = "";
+      if (firstFrame) {
+        els.startSlot.appendChild(makeThumb(firstFrame.croppedUrl || firstFrame.url, () => {
+          releaseItem(firstFrame);
+          firstFrame = null;
+          renderAssigned();
+        }));
+      } else {
+        const none = document.createElement("div");
+        none.className = "text-xs text-zinc-600";
+        none.textContent = "None";
+        els.startSlot.appendChild(none);
+      }
+
+      // end frame slot
+      els.endSlot.innerHTML = "";
+      if (lastFrame) {
+        els.endSlot.appendChild(makeThumb(lastFrame.croppedUrl || lastFrame.url, () => {
+          releaseItem(lastFrame);
+          lastFrame = null;
+          renderAssigned();
+        }));
+      } else {
+        const none = document.createElement("div");
+        none.className = "text-xs text-zinc-600";
+        none.textContent = "None";
+        els.endSlot.appendChild(none);
+      }
+
+      // asset references grid
+      els.assetGrid.innerHTML = "";
+      assetRefs.forEach((item, idx) => {
+        els.assetGrid.appendChild(makeThumb(item.url, () => {
+          releaseItem(item);
+          assetRefs.splice(idx, 1);
+          renderAssigned();
+        }));
+      });
+      if (assetRefs.length === 0) {
+        const none = document.createElement("div");
+        none.className = "text-xs text-zinc-600";
+        none.textContent = "None";
+        els.assetGrid.appendChild(none);
+      }
+
+      els.assetCount.textContent = String(assetRefs.length);
+      els.addAssetBtn.textContent = "Add to asset references (" + assetRefs.length + "/" + MAX_ASSET_REFS + ")";
+      updatePendingUI();
+
+      const any = firstFrame || lastFrame || assetRefs.length > 0;
+      els.assignedWrap.classList.toggle("hidden", !any);
+    }
+
+    // -----------------------------
+    // Networking helpers
+    // -----------------------------
+    async function handleMaybeApiError(resp) {
+      const status = resp.status;
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const data = await resp.json().catch(() => null);
+        const raw = data ? JSON.stringify(data, null, 2) : "(invalid JSON)";
+        const msg = (data && data.error && data.error.message) ? data.error.message : raw;
+        showError("API error (" + status + ")", msg, raw);
+      } else {
+        const text = await resp.text().catch(() => "");
+        showError("HTTP error (" + status + ")", text || "(no message)", text);
+      }
+    }
+
+    async function createVideo(key, payload, signal) {
+      const url = API_BASE + "/videos";
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      // 202 Accepted: { id, polling_url, status }
+      const job = await resp.json();
+      return job;
+    }
+
+    async function getVideo(key, id, { signal } = {}) {
+      const url = API_BASE + "/videos/" + encodeURIComponent(id);
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: "Bearer " + key },
+        signal,
+      });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      const job = await resp.json();
+      return job;
+    }
+
+    async function getVideoContentBlob(key, job) {
+      // Prefer unsigned_urls from the completed job; fall back to the content endpoint.
+      const url =
+        (job.unsigned_urls && job.unsigned_urls[0]) ||
+        API_BASE + "/videos/" + encodeURIComponent(job.id) + "/content?index=0";
+
+      const headers = { Accept: "video/*,application/json" };
+      // The OpenRouter content endpoint requires authorization.
+      if (url.startsWith(API_BASE)) {
+        headers.Authorization = "Bearer " + key;
+      }
+
+      const resp = await fetch(url, { method: "GET", headers });
+      if (!resp.ok) {
+        await handleMaybeApiError(resp);
+        return null;
+      }
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const data = await resp.json().catch(() => null);
+        const raw = data ? JSON.stringify(data, null, 2) : "(invalid JSON)";
+        showError("API returned JSON instead of video", "See raw payload below.", raw);
+        return null;
+      }
+      return await resp.blob();
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    // -----------------------------
+    // Polling and flow
+    // -----------------------------
+    function stopPolling() {
+      if (!pollState) return;
+      const state = pollState;
+      if (state.nextTimerId) {
+        clearTimeout(state.nextTimerId);
+      }
+      if (state.abortController) {
+        try {
+          state.abortController.abort();
+        } catch {
+          // ignore
+        }
+      }
+      pollState = null;
+    }
+
+    function scheduleNextPoll() {
+      const state = pollState;
+      if (!state) return;
+
+      state.tick += 1;
+
+      const now = performance.now();
+      const target = state.startTime + state.tick * state.baseInterval;
+      let delay = target - now;
+      const growth = Math.min(state.tick * POLL_PER_TICK_GROWTH, POLL_MAX_INTERVAL - state.baseInterval);
+
+      if (delay < 0) {
+        const overshoot = Math.min(Math.abs(delay), state.baseInterval);
+        delay = state.baseInterval + overshoot + growth;
+      } else {
+        delay = delay + growth;
+      }
+
+      delay = Math.max(POLL_MIN_INTERVAL, Math.min(delay, POLL_MAX_INTERVAL));
+
+      state.nextTimerId = setTimeout(() => runPoll(false), delay);
+    }
+
+    async function runPoll(isInitial) {
+      const state = pollState;
+      if (!state) return;
+      if (state.inFlight) return;
+
+      if (isInitial || state.startTime === null) {
+        state.startTime = performance.now();
+        state.tick = 0;
+      }
+
+      state.inFlight = true;
+
+      const controller = new AbortController();
+      state.abortController = controller;
+
+      let timedOut = false;
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, state.timeoutPerRequest);
+
+      let job = null;
+      let error = null;
+
+      try {
+        job = await getVideo(state.key, state.id, { signal: controller.signal });
+      } catch (err) {
+        error = err;
+      } finally {
+        clearTimeout(timeoutHandle);
+        if (pollState === state) {
+          state.abortController = null;
+          state.inFlight = false;
+        }
+      }
+
+      if (pollState !== state) {
+        return;
+      }
+
+      if (timedOut) {
+        console.warn("Polling request timed out; retrying with adjusted delay.");
+        scheduleNextPoll();
+        return;
+      }
+
+      if (error) {
+        if (error.name === "AbortError") {
+          return;
+        }
+        showError("Network error", String(error));
+        stopPolling();
+        setLoading(false);
+        return;
+      }
+
+      if (!job) {
+        stopPolling();
+        setLoading(false);
+        return;
+      }
+
+      setStatus(job);
+
+      if (job.status !== lastStatus) {
+        lastStatus = job.status;
+      }
+
+      // Terminal failure states: failed, cancelled, expired
+      if (job.status === "failed" || job.status === "cancelled" || job.status === "expired") {
+        currentJobId = null;
+        els.cancelBtn.disabled = true;
+        stopPolling();
+        setLoading(false);
+        showError(
+          "Video generation " + job.status,
+          job.error || "The job returned status '" + job.status + "'. Raw job JSON is shown in the Status panel.",
+          JSON.stringify(job, null, 2)
+        );
+        return;
+      }
+
+      if (job.status === "completed") {
+        els.cancelBtn.disabled = true;
+
+        const keyForFetch = state.key;
+        currentJobId = null;
+        stopPolling();
+
+        const blob = await getVideoContentBlob(keyForFetch, job);
+        if (blob) {
+          clearError();
+          els.waitingMsg.classList.add("hidden");
+          try {
+            const dataUrl = await blobToDataURL(blob);
+            videoDataUrl = dataUrl;
+            els.resultVideo.src = dataUrl; // no autoplay
+            els.downloadLink.href = dataUrl;
+            els.videoWrap.classList.remove("hidden");
+          } catch (e) {
+            showError("Failed to load video", String(e));
+          }
+        }
+        setLoading(false);
+        return;
+      }
+
+      scheduleNextPoll();
+    }
+
+    function startPolling(key, id) {
+      stopPolling();
+      pollState = {
+        key,
+        id,
+        startTime: null,
+        tick: 0,
+        baseInterval: POLL_BASE_INTERVAL,
+        timeoutPerRequest: POLL_TIMEOUT_MS,
+        nextTimerId: null,
+        inFlight: false,
+        abortController: null,
+      };
+      runPoll(true);
+    }
+
+    // -----------------------------
+    // Event wiring
+    // -----------------------------
+    els.toggleKeyVisibility.addEventListener("click", (e) => {
+      e.preventDefault();
+      const type = els.apiKey.type === "password" ? "text" : "password";
+      els.apiKey.type = type;
+      els.toggleKeyVisibility.textContent = type === "password" ? "Show" : "Hide";
+    });
+
+    els.apiKey.addEventListener("input", () => {
+      saveKeyAuto();
+    });
+
+    els.clearKeyBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearKey();
+    });
+
+    // Populate aspect ratio options for the selected resolution
+    function updateAspectOptions() {
+      const res = els.resolution.value;
+      const sizes = SIZE_MAP[res] || SIZE_MAP["480p"];
+      const prev = els.aspectRatio.value;
+      els.aspectRatio.innerHTML = "";
+      for (const [ratio, dims] of Object.entries(sizes)) {
+        const opt = document.createElement("option");
+        opt.value = ratio;
+        opt.textContent = (ASPECT_LABELS[ratio] || ratio) + " (" + dims + ")";
+        els.aspectRatio.appendChild(opt);
+      }
+      if (Object.prototype.hasOwnProperty.call(sizes, prev)) {
+        els.aspectRatio.value = prev;
+      } else {
+        els.aspectRatio.value = "16:9";
+      }
+      refreshAllFramePreviews().catch(() => {});
+      updateCostEstimate();
+    }
+
+    // Show the estimated cost for the current settings, rounded to cents.
+    // Hovering the label reveals a full price breakdown.
+    function updateCostEstimate() {
+      const parsed = parseSizeStr(currentSizeStr());
+      let duration = parseInt(els.seconds.value, 10);
+      if (!Number.isInteger(duration)) duration = DURATION_MIN;
+      duration = Math.max(DURATION_MIN, Math.min(DURATION_MAX, duration));
+      if (!parsed) {
+        els.costEstimateText.textContent = "Est. cost: N/A";
+        els.costBreakdown.innerHTML = "";
+        return;
+      }
+      const frames = PRICE_FPS * duration + 1;
+      const tokens = (parsed.w * parsed.h * frames) / 1024;
+      const cost = tokens * PRICE_PER_VIDEO_TOKEN;
+      els.costEstimateText.textContent = "Est. cost: $" + cost.toFixed(2);
+
+      const row = (label, value) =>
+        '<div class="flex justify-between gap-4"><span class="text-zinc-500">' + label +
+        '</span><span class="font-mono">' + value + "</span></div>";
+      els.costBreakdown.innerHTML =
+        '<div class="mb-2 font-medium text-zinc-200">Price breakdown</div>' +
+        row("Output size", parsed.w + "x" + parsed.h) +
+        row("Pixels/frame", (parsed.w * parsed.h).toLocaleString("en-US")) +
+        row("Frames", PRICE_FPS + " fps x " + duration + "s + 1 = " + frames) +
+        row("Video tokens", Math.round(tokens).toLocaleString("en-US")) +
+        row("Rate/token", "$" + PRICE_PER_VIDEO_TOKEN.toFixed(7)) +
+        '<div class="mt-2 flex justify-between gap-4 border-t border-zinc-700 pt-2 text-zinc-100">' +
+        '<span>Est. total</span><span class="font-mono">$' + cost.toFixed(4) + "</span></div>" +
+        '<div class="mt-2 text-zinc-500">tokens = W x H x frames / 1024</div>';
+    }
+
+    // Clamp typed duration to the supported 4..30 range
+    function clampDuration() {
+      const raw = els.seconds.value.trim();
+      if (raw === "") return;
+      let v = parseInt(raw, 10);
+      if (!Number.isInteger(v)) v = DURATION_MIN;
+      v = Math.max(DURATION_MIN, Math.min(DURATION_MAX, v));
+      els.seconds.value = String(v);
+    }
+    els.seconds.addEventListener("change", clampDuration);
+    els.seconds.addEventListener("blur", clampDuration);
+    els.seconds.addEventListener("input", updateCostEstimate);
+
+    els.resolution.addEventListener("change", updateAspectOptions);
+    els.aspectRatio.addEventListener("change", () => {
+      refreshAllFramePreviews().catch(() => {});
+      updateCostEstimate();
+    });
+
+    // Image interactions
+    els.refDrop.addEventListener("click", () => {
+      els.refFile.click();
+    });
+    els.refFile.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) await intakeImage(file);
+      els.refFile.value = "";
+    });
+
+    // Drag and drop
+    ["dragenter", "dragover"].forEach((evt) =>
+      els.refDrop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        els.refDrop.classList.add("border-zinc-500");
+      })
+    );
+    ["dragleave", "drop"].forEach((evt) =>
+      els.refDrop.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        els.refDrop.classList.remove("border-zinc-500");
+      })
+    );
+    els.refDrop.addEventListener("drop", async (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) await intakeImage(file);
+    });
+
+    // Paste support: images can be pasted anywhere on the page. Only image
+    // clipboard content is intercepted; text paste behaves normally
+    // everywhere (including the prompt).
+    document.addEventListener("paste", (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.kind === "file") {
+          const file = it.getAsFile();
+          if (file && file.type.startsWith("image/")) {
+            e.preventDefault();
+            intakeImage(file);
+            break;
+          }
+        }
+      }
+    });
+
+    // Pending image actions
+    els.pendingDeleteBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearPending();
+    });
+    els.setStartBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      assignPending("start").catch((err) => showError("Image processing failed", String(err)));
+    });
+    els.setEndBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      assignPending("end").catch((err) => showError("Image processing failed", String(err)));
+    });
+    els.addAssetBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      assignPending("asset").catch((err) => showError("Image processing failed", String(err)));
+    });
+
+    // Create flow
+    els.createForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearError();
+      clearOutput();
+
+      const key = ensureApiKey();
+      if (!key) return;
+
+      const prompt = els.prompt.value.trim();
+      const resolution = els.resolution.value;
+      const aspectRatio = els.aspectRatio.value;
+
+      // Clamp typed duration into the supported range
+      clampDuration();
+      let duration = parseInt(els.seconds.value, 10);
+      if (!Number.isInteger(duration)) duration = DURATION_MIN;
+      duration = Math.max(DURATION_MIN, Math.min(DURATION_MAX, duration));
+      els.seconds.value = String(duration);
+
+      if (!prompt) {
+        showError("Validation error", "Prompt is required.");
+        return;
+      }
+      if (!SIZE_MAP[resolution]) {
+        showError("Validation error", "Resolution must be 480p or 720p.");
+        return;
+      }
+      if (!SIZE_MAP[resolution][aspectRatio]) {
+        showError("Validation error", "Aspect ratio is not supported for this model.");
+        return;
+      }
+      // The provider rejects a last frame on its own ("last frame image
+      // content cannot be mixed with first frame or reference image content"):
+      // it is only valid together with a first frame.
+      if (lastFrame && !firstFrame) {
+        showError("Validation error", "An end frame requires a start frame for this model. Set a start frame or remove the end frame.");
+        return;
+      }
+
+      // Start/end frames: crop+resize to the exact output size at submit
+      // time (originals are retained, so late res/ratio changes are fine)
+      let frameImages = null;
+      if (firstFrame || lastFrame) {
+        const parsed = parseSizeStr(currentSizeStr());
+        if (!parsed) {
+          showError("Invalid size", "Invalid target size for frame images.");
+          return;
+        }
+        try {
+          frameImages = [];
+          if (firstFrame) {
+            const p = await cropResizeToTarget(firstFrame.blob, parsed.w, parsed.h);
+            frameImages.push({
+              type: "image_url",
+              image_url: { url: p.dataUrl },
+              frame_type: "first_frame",
+            });
+          }
+          if (lastFrame) {
+            const p = await cropResizeToTarget(lastFrame.blob, parsed.w, parsed.h);
+            frameImages.push({
+              type: "image_url",
+              image_url: { url: p.dataUrl },
+              frame_type: "last_frame",
+            });
+          }
+        } catch (err) {
+          showError("Frame image processing failed", String(err));
+          return;
+        }
+      }
+
+      // Asset references: sent at original size (white-flattened), no crop
+      let inputReferences = null;
+      if (assetRefs.length > 0) {
+        try {
+          inputReferences = [];
+          for (const item of assetRefs) {
+            const dataUrl = await fileToDataURL(item.blob);
+            inputReferences.push({ type: "image_url", image_url: { url: dataUrl } });
+          }
+        } catch (err) {
+          showError("Asset reference processing failed", String(err));
+          return;
+        }
+      }
+
+      const payload = {
+        model: MODEL_ID,
+        prompt,
+        resolution,
+        duration,
+        generate_audio: true, // always on: costs nothing extra for this model
+      };
+      // For image-to-video the provider rejects an explicit aspect_ratio:
+      // the output ratio follows the first-frame image (which we already
+      // crop to the selected ratio), so only send it for text-to-video.
+      if (!frameImages) payload.aspect_ratio = aspectRatio;
+      if (frameImages) payload.frame_images = frameImages;
+      if (inputReferences) payload.input_references = inputReferences;
+
+      setLoading(true);
+      lastStatus = null;
+      createAbort = new AbortController();
+
+      try {
+        const job = await createVideo(key, payload, createAbort.signal);
+        createAbort = null;
+        if (!job) {
+          setLoading(false);
+          return; // error already shown
+        }
+        currentJobId = job.id;
+        lastStatus = job.status || null;
+        setStatus(job);
+        els.waitingMsg.classList.remove("hidden");
+        els.cancelBtn.disabled = false;
+        startPolling(key, currentJobId);
+      } catch (err) {
+        createAbort = null;
+        if (err && err.name === "AbortError") {
+          return; // user pressed Stop; UI already reset by the cancel handler
+        }
+        setLoading(false);
+        showError("Network or runtime error", String(err));
+      }
+    });
+
+    // Stop behavior: aborts an in-flight submit request and/or stops polling.
+    // Note: the OpenRouter video API has no cancel/delete endpoint; a job that
+    // already reached the server keeps running (and still incurs cost), we
+    // just stop watching it.
+    els.cancelBtn.addEventListener("click", () => {
+      clearError();
+      if (!createAbort && !pollState && !currentJobId) {
+        showError("No active job", "Start a job first.");
+        return;
+      }
+      if (createAbort) {
+        try {
+          createAbort.abort();
+        } catch {}
+        createAbort = null;
+      }
+      stopPolling();
+      currentJobId = null;
+      setLoading(false);
+      els.cancelBtn.disabled = true;
+    });
+
+    els.resetBtn.addEventListener("click", () => {
+      resetAll();
+    });
+
+    function resetAll() {
+      if (createAbort) {
+        try {
+          createAbort.abort();
+        } catch {}
+        createAbort = null;
+      }
+      stopPolling();
+      currentJobId = null;
+      lastStatus = null;
+      setLoading(false);
+
+      // status
+      els.statusId.textContent = "N/A";
+      els.statusText.textContent = "N/A";
+      els.statusGenId.textContent = "N/A";
+      els.statusCost.textContent = "N/A";
+      els.lastJobJson.textContent = "-";
+
+      clearOutput();
+      clearError();
+      els.cancelBtn.disabled = true;
+    }
+
+    // -----------------------------
+    // Init
+    // -----------------------------
+    loadKey();
+    updateAspectOptions();
+    renderAssigned();
+    clearOutput();
+    clearError();
+    setLoading(false);
+  </script>
+</body>
+</html>
