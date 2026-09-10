@@ -71,7 +71,7 @@
             <option value="google_flash">Google AI Studio - model: gemini-3.1-flash-image-preview</option>
             <option value="openrouter_pro">OpenRouter - model: google/gemini-3-pro-image-preview</option>
             <option value="openrouter_flash">OpenRouter - model: google/gemini-3.1-flash-image-preview</option>
-            <option value="openai">OpenAI - model: gpt-image-2</option>
+            <option value="openai">OpenAI - model: gpt-image-2.5-sunburst</option>
             <option value="xai">xAI - model: grok-imagine-image-2.0</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
@@ -179,6 +179,8 @@
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
+            <option value="xhigh">Extra High</option>
+            <option value="max">Max</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-400">
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -360,7 +362,7 @@
       openai: {
         id: 'openai',
         provider: 'openai',
-        model: 'gpt-image-2'
+        model: 'gpt-image-2.5-sunburst'
       },
       xai: {
         id: 'xai',
@@ -1176,7 +1178,7 @@
       var sizeObj = calculateOpenAISize(els.aspectRatio.value, els.imageSize.value);
 
       if (!sizeObj) {
-        throw new Error('Selected OpenAI size and aspect ratio do not satisfy gpt-image-2 constraints.');
+        throw new Error('Selected OpenAI size and aspect ratio do not satisfy gpt-image-2.5-sunburst constraints.');
       }
 
       var size = sizeObj.text;
@@ -1191,7 +1193,7 @@
         fd.append('size', size);
         fd.append('quality', quality);
         fd.append('output_format', 'webp');
-        fd.append('output_compression', 75);
+        fd.append('output_compression', 90);
         fd.append('background', 'auto');
         fd.append('moderation', 'low');
         fd.append('n', 1);
@@ -1215,7 +1217,7 @@
         size: size,
         quality: quality,
         output_format: 'webp',
-        output_compression: 75,
+        output_compression: 90,
         background: 'auto',
         moderation: 'low',
         n: 1,
